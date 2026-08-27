@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1785970680139,
+      "tag": "0000_hard_lethal_legion",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1785974110004,
+      "tag": "0001_parallel_captain_america",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786003597380,
+      "tag": "0002_same_kabuki",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1786005102508,
+      "tag": "0003_curved_kinsey_walden",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1786078200000,
+      "tag": "0004_faultcite_pilot_invariants",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1787699400000,
+      "tag": "0005_invitation_expiry",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1787700300000,
+      "tag": "0006_clerk_identity_binding",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1787749200000,
+      "tag": "0007_case_machine_tenant_guard",
+      "breakpoints": true
+    }
+  ]
+}

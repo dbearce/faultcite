@@ -1,0 +1,11 @@
+{
+  "environment": "staging",
+  "workerName": "faultcite-staging",
+  "databaseName": "faultcite-staging-db",
+  "databaseId": "REPLACE_WITH_STAGING_D1_DATABASE_ID",
+  "bucketName": "faultcite-staging-files",
+  "appOrigin": "https://staging.faultcite.com",
+  "customDomain": "staging.faultcite.com",
+  "clerkPublishableKey": "REPLACE_WITH_CLERK_PUBLISHABLE_KEY",
+  "fromEmail": "FaultCite <invites@faultcite.com>"
+}
