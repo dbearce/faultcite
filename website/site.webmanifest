@@ -1,0 +1,9 @@
+{
+  "name": "FaultCite",
+  "short_name": "FaultCite",
+  "description": "CNC maintenance evidence and repair intelligence.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#f5f3ed",
+  "theme_color": "#10243a"
+}
