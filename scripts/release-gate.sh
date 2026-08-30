@@ -14,7 +14,7 @@ npm run lint
 echo "[4/7] Building and validating the Worker artifact"
 npm run build
 echo "[5/7] Running automated tests"
-node --test tests/*.test.mjs
+node --experimental-strip-types --test tests/*.test.mjs
 echo "[6/7] Validating bundled runtime dependencies and auditing production dependencies"
 npm run validate:runtime-dependencies
 npm audit --omit=dev --audit-level=high
