@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const root = path.resolve("website");
-const required = ["index.html", "pilot.html", "security.html", "styles.css", "robots.txt", "sitemap.xml"];
+const required = ["index.html", "pilot.html", "security.html", "styles.css", "robots.txt", "sitemap.xml", "404.html", "site.webmanifest", "_headers"];
 for (const file of required) {
   const full = path.join(root, file);
   if (!fs.existsSync(full) || fs.statSync(full).size === 0) throw new Error(`Missing public website file: ${file}`);
@@ -22,9 +22,13 @@ for (const href of ["pilot.html", "security.html"]) {
 
 const robots = fs.readFileSync(path.join(root, "robots.txt"), "utf8");
 const sitemap = fs.readFileSync(path.join(root, "sitemap.xml"), "utf8");
+const headers = fs.readFileSync(path.join(root, "_headers"), "utf8");
 if (!robots.includes("https://faultcite.com/sitemap.xml")) throw new Error("robots.txt does not advertise the FaultCite sitemap");
 for (const url of ["https://faultcite.com/", "https://faultcite.com/pilot.html", "https://faultcite.com/security.html"]) {
   if (!sitemap.includes(url)) throw new Error(`sitemap.xml is missing ${url}`);
+}
+for (const header of ["Content-Security-Policy", "X-Content-Type-Options", "Referrer-Policy", "Permissions-Policy", "Strict-Transport-Security"]) {
+  if (!headers.includes(header)) throw new Error(`_headers is missing ${header}`);
 }
 
 console.log("FaultCite public website validation passed.");
