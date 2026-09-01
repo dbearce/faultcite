@@ -24,7 +24,7 @@ const database = (config.d1_databases || []).find(item => item.binding === "DB")
 const bucket = (config.r2_buckets || []).find(item => item.binding === "BUCKET");
 assert.ok(database, "DB binding is missing");
 assert.match(database.database_name || "", new RegExp(environment), "D1 database is not environment-isolated");
-assert.match(database.database_id || "", /^[0-9a-f]{32}$/i, "D1 database ID is missing or invalid");
+assert.match(database.database_id || "", /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "D1 database ID is missing or invalid");
 assert.ok(bucket, "BUCKET binding is missing");
 assert.match(bucket.bucket_name || "", new RegExp(environment), "R2 bucket is not environment-isolated");
 assert.equal(config.observability?.enabled, true, "Worker observability must be enabled");

@@ -24,7 +24,7 @@ if (settings.customDomain !== expected.domain) throw new Error(`Expected customD
 for (const key of ["workerName", "databaseName", "bucketName"]) {
   if (!settings[key].includes(expected.suffix)) throw new Error(`${key} must identify the ${environment} environment`);
 }
-if (!/^[0-9a-f]{32}$/i.test(settings.databaseId)) throw new Error("databaseId does not look like a Cloudflare D1 ID");
+if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(settings.databaseId)) throw new Error("databaseId does not look like a Cloudflare D1 ID");
 if (!/^pk_(test|live)_\S+$/.test(settings.clerkPublishableKey)) throw new Error("clerkPublishableKey does not look like a Clerk publishable key");
 if (!/^[^\r\n<>]+<[^\r\n<>\s]+@faultcite\.com>$/.test(settings.fromEmail)) throw new Error("fromEmail must be a faultcite.com mailbox in Name <address> form");
 
