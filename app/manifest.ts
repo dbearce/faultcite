@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "FaultCite Technician Console",
     short_name: "FaultCite",
-    description: "Capture CNC breakdown evidence, manager review, and saved repair history.",
+    description: "Capture CNC breakdown evidence, manager review, and permanent repair history.",
     start_url: "/",
     display: "standalone",
     background_color: "#f4f7f9",

@@ -1,0 +1,25 @@
+name = "faultcite-staging"
+main = "../dist/server/index.js"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+[assets]
+directory = "../dist/client"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "faultcite-staging-db"
+database_id = "0a9b513b-1067-4939-81b4-4fe9c01b8dd9"
+migrations_dir = "../drizzle"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "faultcite-staging-files"
+
+[vars]
+FAULTCITE_DEPLOYMENT_TARGET = "standalone"
+FAULTCITE_AUTH_PROVIDER = "clerk"
+FAULTCITE_RUNTIME = "standalone"
+FAULTCITE_APP_ORIGIN = "https://faultcite-staging.derekbearce.workers.dev"
+CLERK_AUTHORIZED_PARTIES = "https://faultcite-staging.derekbearce.workers.dev"
+FAULTCITE_CONTACT_EMAIL = "admin@faultcite.com"

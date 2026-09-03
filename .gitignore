@@ -35,10 +35,10 @@ yarn-error.log*
 
 # typescript
 next-env.d.ts
+*.tsbuildinfo
 /dist/
+/.vinext/
 /.wrangler/
 /.sites-runtime/
 /outputs/
 /work/
-/.release/
-/deploy/*.local.json

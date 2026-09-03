@@ -1,0 +1,27 @@
+name = "faultcite-production"
+main = "../dist/server/index.js"
+compatibility_date = "2026-08-01"
+compatibility_flags = ["nodejs_compat"]
+# Intentionally route-free. app.faultcite.com stays on the existing host until
+# staging acceptance, backup/restore rehearsal, and an approved cutover.
+[assets]
+directory = "../dist/client"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "faultcite-production-db"
+database_id = "REPLACE_WITH_PRODUCTION_D1_DATABASE_ID"
+migrations_dir = "../drizzle"
+
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "faultcite-production-files"
+
+[vars]
+FAULTCITE_DEPLOYMENT_TARGET = "standalone"
+FAULTCITE_AUTH_PROVIDER = "clerk"
+FAULTCITE_RUNTIME = "standalone"
+FAULTCITE_APP_ORIGIN = "https://app.faultcite.com"
+CLERK_AUTHORIZED_PARTIES = "https://app.faultcite.com"
+FAULTCITE_CONTACT_EMAIL = "admin@faultcite.com"

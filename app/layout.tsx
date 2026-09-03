@@ -1,9 +1,8 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
-
-const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
-const mono = Geist_Mono({ variable: "--font-mono", subsets: ["latin"] });
+import { ClerkSessionBridge } from "./clerk-session-bridge";
+import { getRequestEnv } from "../lib/request-env";
 
 export const metadata: Metadata = {
   title: {
@@ -23,7 +22,11 @@ export const metadata: Metadata = {
     title: "FaultCite",
     statusBarStyle: "black-translucent",
   },
-  other: { "codex-preview": "development" },
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+  },
 };
 
 export const viewport: Viewport = {
@@ -31,10 +34,17 @@ export const viewport: Viewport = {
   colorScheme: "light",
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const standalone = (await headers()).get("x-faultcite-runtime") === "standalone";
+  const env = standalone ? getRequestEnv() : {};
+  const publishableKey = env.CLERK_PUBLISHABLE_KEY?.trim();
+  const frontendApi = env.CLERK_FRONTEND_API?.trim() || "https://clerk.faultcite.com";
   return (
     <html lang="en">
-      <body className={`${geist.variable} ${mono.variable}`}>{children}</body>
+      <body>
+        {standalone && publishableKey ? <ClerkSessionBridge publishableKey={publishableKey} frontendApi={frontendApi} /> : null}
+        {children}
+      </body>
     </html>
   );
 }

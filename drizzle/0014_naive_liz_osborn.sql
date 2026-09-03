@@ -1,0 +1,1 @@
+ALTER TABLE `manuals` ADD `page_count` integer;

@@ -1,8 +1,11 @@
-import { AuthShell } from "./auth-shell";
-import { displayEnvironment, FAULTCITE_RELEASE } from "../lib/release";
+import type { Metadata } from "next";
+import { TechnicianConsole } from "./technician-console";
+import { requireAuthUser, signOutPath } from "./auth";
 
 export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Maintenance Workspace" };
 
-export default function Home() {
-  return <AuthShell publishableKey={process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY || ""} version={FAULTCITE_RELEASE} environment={displayEnvironment(process.env.FAULTCITE_ENVIRONMENT)} />;
+export default async function Home() {
+  const user = await requireAuthUser("/");
+  return <TechnicianConsole signedInName={user.displayName} signedInEmail={user.email} signOutPath={await signOutPath("/")} />;
 }

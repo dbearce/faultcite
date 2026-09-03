@@ -1,58 +1,13 @@
-import { asc, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { auditLogs, caseEvents, cases, machines, organizations } from "../../../db/schema";
-import { apiError, isErrorResponse, requireApiContext, writeAudit } from "../../../lib/backend";
-
-function asIso(value: Date | null | undefined) {
-  return value ? value.toISOString() : null;
-}
+import { auditLogs, caseEvents, caseEvidence, cases, invitations, machines, manuals, manualSources, memberships, organizations, pilotFeedback, users } from "../../../db/schema";
+import { apiError, enforceRateLimit, isErrorResponse, requireApiContext, writeAudit } from "../../../lib/backend";
 
 export async function GET() {
-  const ctx = await requireApiContext();
-  if (isErrorResponse(ctx)) return ctx;
-  if (!["owner", "manager"].includes(ctx.role)) return apiError("Manager permission required", 403);
-
-  const db = await getDb();
-  const [[organization], machineRows, caseRows, eventRows, auditRows] = await Promise.all([
-    db.select().from(organizations).where(eq(organizations.id, ctx.organizationId)).limit(1),
-    db.select().from(machines).where(eq(machines.organizationId, ctx.organizationId)).orderBy(asc(machines.assetNumber)),
-    db.select().from(cases).where(eq(cases.organizationId, ctx.organizationId)).orderBy(asc(cases.openedAt)),
-    db.select().from(caseEvents).where(eq(caseEvents.organizationId, ctx.organizationId)).orderBy(asc(caseEvents.createdAt)),
-    db.select().from(auditLogs).where(eq(auditLogs.organizationId, ctx.organizationId)).orderBy(asc(auditLogs.createdAt)),
+  const ctx = await requireApiContext(); if (isErrorResponse(ctx)) return ctx; if (ctx.role !== "owner") return apiError("Owner permission required", 403); const limited=await enforceRateLimit(ctx,"organization-export",3,3600);if(limited)return limited; const db = await getDb();
+  const [[organization], machineRows, caseRows, eventRows, evidenceRows, manualRows, sourceRows, inviteRows, memberRows, feedbackRows, auditRows] = await Promise.all([
+    db.select().from(organizations).where(eq(organizations.id, ctx.organizationId)).limit(1), db.select().from(machines).where(eq(machines.organizationId, ctx.organizationId)), db.select().from(cases).where(eq(cases.organizationId, ctx.organizationId)), db.select().from(caseEvents).where(eq(caseEvents.organizationId, ctx.organizationId)), db.select().from(caseEvidence).where(eq(caseEvidence.organizationId, ctx.organizationId)), db.select().from(manuals).where(eq(manuals.organizationId, ctx.organizationId)), db.select().from(manualSources).where(eq(manualSources.organizationId, ctx.organizationId)), db.select().from(invitations).where(eq(invitations.organizationId, ctx.organizationId)), db.select({ membershipId: memberships.id, role: memberships.role, active: memberships.active, email: users.email, displayName: users.displayName }).from(memberships).innerJoin(users, eq(memberships.userId, users.id)).where(eq(memberships.organizationId, ctx.organizationId)), db.select().from(pilotFeedback).where(eq(pilotFeedback.organizationId, ctx.organizationId)), db.select().from(auditLogs).where(eq(auditLogs.organizationId, ctx.organizationId)),
   ]);
-
-  if (!organization) return apiError("Company not found", 404);
-
-  const generatedAt = new Date();
-  const payload = {
-    exportVersion: 1,
-    generatedAt: generatedAt.toISOString(),
-    organization: { id: organization.id, name: organization.name, slug: organization.slug, status: organization.status },
-    machines: machineRows.map((row) => ({ ...row, createdAt: asIso(row.createdAt), updatedAt: asIso(row.updatedAt) })),
-    cases: caseRows.map((row) => ({
-      ...row,
-      openedAt: asIso(row.openedAt),
-      closedAt: asIso(row.closedAt),
-      temporaryExpiresAt: asIso(row.temporaryExpiresAt),
-      createdAt: asIso(row.createdAt),
-      updatedAt: asIso(row.updatedAt),
-    })),
-    caseEvents: eventRows.map((row) => ({ ...row, createdAt: asIso(row.createdAt) })),
-    auditLog: auditRows.map((row) => ({ ...row, createdAt: asIso(row.createdAt) })),
-  };
-
-  await writeAudit(ctx, "organization.exported", "organization", ctx.organizationId, {
-    machineCount: machineRows.length,
-    caseCount: caseRows.length,
-    eventCount: eventRows.length,
-  });
-
-  const safeSlug = organization.slug.replace(/[^a-zA-Z0-9_-]/g, "_");
-  return Response.json(payload, {
-    headers: {
-      "cache-control": "private, no-store",
-      "content-disposition": `attachment; filename="faultcite-${safeSlug}-${generatedAt.toISOString().slice(0, 10)}.json"`,
-      "x-content-type-options": "nosniff",
-    },
-  });
+  await writeAudit(ctx, "organization.exported", "organization", ctx.organizationId); const body=JSON.stringify({ exportedAt:new Date().toISOString(), organization, machines:machineRows, cases:caseRows, caseEvents:eventRows, evidenceMetadata:evidenceRows.map(evidence=>({ ...evidence, objectKey: undefined })), manuals:manualRows.map(manual=>({ ...manual, objectKey: undefined })), approvedManualSources:sourceRows, invitations:inviteRows.map(invite=>({ ...invite, tokenHash: undefined })), team:memberRows, pilotFeedback:feedbackRows, auditLog:auditRows },null,2);
+  return new Response(body,{headers:{"content-type":"application/json; charset=utf-8","content-disposition":`attachment; filename="faultcite-company-export-${new Date().toISOString().slice(0,10)}.json"`,"cache-control":"private, no-store"}});
 }

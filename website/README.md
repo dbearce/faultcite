@@ -24,3 +24,4 @@ Before connecting `faultcite.com`:
 4. Confirm `support@faultcite.com` receives pilot inquiries.
 5. Verify HTTPS and redirects from `www.faultcite.com` to the chosen canonical host.
 6. Keep the application and marketing deployments isolated so a marketing change cannot modify the authenticated Worker.
+

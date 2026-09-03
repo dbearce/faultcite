@@ -1,24 +1,29 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, lt, notInArray } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { auditLogs, caseEvents, cases, machines } from "../../../db/schema";
-import { apiError, cleanText, isErrorResponse, readJsonObject, requireApiContext } from "../../../lib/backend";
-import { caseApiView } from "../../../lib/api-views";
+import { apiError, cleanText, isErrorResponse, requireApiContext } from "../../../lib/backend";
 
-export async function GET() {
+export async function GET(request: Request) {
   const ctx = await requireApiContext(); if (isErrorResponse(ctx)) return ctx;
-  const rows = await (await getDb()).select().from(cases).where(eq(cases.organizationId, ctx.organizationId)).orderBy(desc(cases.openedAt)).limit(500);
-  return Response.json({ cases: rows.map(caseApiView) });
+  const url = new URL(request.url);
+  const rawBefore = url.searchParams.get("before");
+  const beforeValue = rawBefore === null ? Date.now() : Number(rawBefore);
+  if (!Number.isFinite(beforeValue) || beforeValue <= 0) return apiError("A valid repair-history cursor is required");
+  const pageSize = 100;
+  const activeStatuses = ["open", "diagnosing", "review_requested", "cause_confirmed", "closeout_requested", "escalated"];
+  const rows = await (await getDb()).select().from(cases).where(and(eq(cases.organizationId, ctx.organizationId), notInArray(cases.status, activeStatuses), lt(cases.openedAt, new Date(beforeValue)))).orderBy(desc(cases.openedAt)).limit(pageSize + 1);
+  return Response.json({ cases: rows.slice(0, pageSize), hasMore: rows.length > pageSize });
 }
 
 export async function POST(request: Request) {
   const ctx = await requireApiContext(); if (isErrorResponse(ctx)) return ctx;
   try {
-    const body = await readJsonObject(request);
+    const body = await request.json() as Record<string, unknown>;
     const machineId = cleanText(body.machineId, 80, true)!;
     const db = await getDb();
     const [machine] = await db.select({ id: machines.id }).from(machines).where(and(eq(machines.id, machineId), eq(machines.organizationId, ctx.organizationId))).limit(1);
     if (!machine) return apiError("Machine not found in your company", 404);
-    const activeStatuses = ["open", "diagnosing", "review_requested", "cause_confirmed", "escalated"];
+    const activeStatuses = ["open", "diagnosing", "review_requested", "cause_confirmed", "closeout_requested", "escalated"];
     const existingCases = await db.select({ id: cases.id, caseNumber: cases.caseNumber, status: cases.status }).from(cases).where(and(eq(cases.machineId, machineId), eq(cases.organizationId, ctx.organizationId)));
     const active = existingCases.find(item => activeStatuses.includes(item.status));
     if (active) return apiError(`Machine already has active case ${active.caseNumber}`, 409);
@@ -37,6 +42,6 @@ export async function POST(request: Request) {
       if (concurrent) return apiError(`Machine already has active case ${concurrent.caseNumber}`, 409);
       throw new Error("The case could not be created safely");
     }
-    return Response.json({ case: caseApiView(row) }, { status: 201 });
+    return Response.json({ case: row }, { status: 201 });
   } catch (error) { return apiError(error instanceof Error ? error.message : "Invalid request"); }
 }

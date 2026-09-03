@@ -13,10 +13,17 @@ command -v timeout >/dev/null || {
 }
 
 vinext="${SITES_PROJECT_ROOT}/node_modules/.bin/vinext"
+eslint="${SITES_PROJECT_ROOT}/node_modules/.bin/eslint"
+tsc="${SITES_PROJECT_ROOT}/node_modules/.bin/tsc"
 if [[ ! -x "${vinext}" ]]; then
   echo "vinext is unavailable. Run npm run install:ci and wait for it to finish before building." >&2
   exit 69
 fi
+
+echo "Running release lint and type checks..."
+node "${script_dir}/validate-website.mjs"
+"${eslint}" . --ignore-pattern dist --ignore-pattern .next
+"${tsc}" --noEmit
 
 echo "Running bounded vinext build..."
 timeout \
@@ -26,3 +33,6 @@ timeout \
   "${vinext}" build
 
 "${script_dir}/validate-artifact.sh"
+
+echo "Running release safety and artifact tests..."
+node --test tests/*.test.mjs
