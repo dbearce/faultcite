@@ -1,0 +1,9 @@
+{
+  "product": "FaultCite",
+  "release": "0.3.7",
+  "releaseTag": "faultcite-v0.3.7",
+  "latestMigration": "0025_stripe_webhook_ordering.sql",
+  "productionApp": "https://app.faultcite.com",
+  "publicWebsite": "https://faultcite.com",
+  "releaseGate": "npm test"
+}

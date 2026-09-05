@@ -46,6 +46,13 @@ export function ClerkSignIn({ publishableKey, frontendApi, returnTo }: {
       clerk.mountSignIn(node, {
         fallbackRedirectUrl: returnTo,
         signUpFallbackRedirectUrl: returnTo,
+        appearance: {
+          elements: {
+            headerTitle: "faultcite-clerk-hidden",
+            headerSubtitle: "faultcite-clerk-hidden",
+            footerAction: "faultcite-clerk-hidden",
+          },
+        },
       });
       mountedRef.current = true;
       if (loadingTimeoutRef.current !== null) window.clearTimeout(loadingTimeoutRef.current);

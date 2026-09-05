@@ -6,7 +6,7 @@ const timestamps = {
 };
 
 export const organizations = sqliteTable("organizations", {
-  id: text("id").primaryKey(), name: text("name").notNull(), slug: text("slug").notNull(), status: text("status").notNull().default("pilot"), plan: text("plan").notNull().default("pilot"), subscriptionStatus: text("subscription_status").notNull().default("not_configured"), stripeCustomerId: text("stripe_customer_id"), stripeSubscriptionId: text("stripe_subscription_id"), subscriptionUpdatedAt: integer("subscription_updated_at", { mode: "timestamp_ms" }), reviewSlaMinutes: integer("review_sla_minutes").notNull().default(60), dataRetentionDays: integer("data_retention_days").notNull().default(2555), safetyContactEmail: text("safety_contact_email"), supportContactEmail: text("support_contact_email"), termsAcceptedAt: integer("terms_accepted_at", { mode: "timestamp_ms" }), ...timestamps,
+  id: text("id").primaryKey(), name: text("name").notNull(), slug: text("slug").notNull(), status: text("status").notNull().default("pilot"), plan: text("plan").notNull().default("pilot"), subscriptionStatus: text("subscription_status").notNull().default("not_configured"), stripeCustomerId: text("stripe_customer_id"), stripeSubscriptionId: text("stripe_subscription_id"), subscriptionUpdatedAt: integer("subscription_updated_at", { mode: "timestamp_ms" }), stripeEventCreatedAt: integer("stripe_event_created_at", { mode: "timestamp_ms" }), stripeEventId: text("stripe_event_id"), reviewSlaMinutes: integer("review_sla_minutes").notNull().default(60), dataRetentionDays: integer("data_retention_days").notNull().default(2555), safetyContactEmail: text("safety_contact_email"), supportContactEmail: text("support_contact_email"), termsAcceptedAt: integer("terms_accepted_at", { mode: "timestamp_ms" }), ...timestamps,
 }, (t) => [uniqueIndex("organizations_slug_uq").on(t.slug)]);
 
 export const users = sqliteTable("users", {
@@ -117,6 +117,22 @@ export const rateLimitBuckets = sqliteTable("rate_limit_buckets", {
   resetAt: integer("reset_at", { mode: "timestamp_ms" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
 }, (t) => [index("rate_limit_reset_idx").on(t.resetAt)]);
+
+export const stripeWebhookEvents = sqliteTable("stripe_webhook_events", {
+  eventId: text("event_id").primaryKey(),
+  eventType: text("event_type").notNull(),
+  processedAt: integer("processed_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+});
+
+export const pilotInterest = sqliteTable("pilot_interest", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  workEmail: text("work_email").notNull(),
+  company: text("company").notNull(),
+  message: text("message"),
+  source: text("source").notNull().default("faultcite.com"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+}, (t) => [index("pilot_interest_created_idx").on(t.createdAt)]);
 
 export const manualUploadSessions = sqliteTable("manual_upload_sessions", {
   id: text("id").primaryKey(),

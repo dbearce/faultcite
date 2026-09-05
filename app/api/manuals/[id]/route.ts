@@ -27,11 +27,17 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!manual.revalidationDueAt || manual.revalidationDueAt.valueOf() <= Date.now()) return apiError("Set a future revalidation date before approval", 409);
   }
   const now = new Date(); const reviewNotes = cleanText(body.reviewNotes, 1000);
+  let revalidationDueAt = manual.revalidationDueAt;
+  if (body.revalidationDueAt !== undefined) {
+    const candidate = new Date(String(body.revalidationDueAt));
+    if (!Number.isFinite(candidate.valueOf()) || candidate.valueOf() <= Date.now()) return apiError("Choose a future revalidation date");
+    revalidationDueAt = candidate;
+  }
   await db.batch([
-    db.update(manuals).set({ status, reviewNotes, reviewedByUserId: ctx.userId, reviewedAt: now, updatedAt: now }).where(and(eq(manuals.id, id), eq(manuals.organizationId, ctx.organizationId))),
+    db.update(manuals).set({ status, reviewNotes, revalidationDueAt, reviewedByUserId: ctx.userId, reviewedAt: now, updatedAt: now }).where(and(eq(manuals.id, id), eq(manuals.organizationId, ctx.organizationId))),
     db.insert(auditLogs).values({ id: crypto.randomUUID(), organizationId: ctx.organizationId, actorUserId: ctx.userId, action: `manual.${status}`, entityType: "manual", entityId: id, metadataJson: JSON.stringify({ reviewNotes }), createdAt: now }),
   ]);
-  return Response.json({ manual: { ...manual, status, reviewNotes, reviewedByUserId: ctx.userId, reviewedAt: now, updatedAt: now } });
+  return Response.json({ manual: { ...manual, status, reviewNotes, revalidationDueAt, reviewedByUserId: ctx.userId, reviewedAt: now, updatedAt: now } });
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {

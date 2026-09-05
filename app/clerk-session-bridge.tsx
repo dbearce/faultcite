@@ -10,6 +10,7 @@ export type ClerkBrowser = {
   mountSignIn(node: HTMLDivElement, options: {
     fallbackRedirectUrl: string;
     signUpFallbackRedirectUrl: string;
+    appearance?: { elements?: Record<string, string> };
   }): void;
   unmountSignIn(node: HTMLDivElement): void;
 };

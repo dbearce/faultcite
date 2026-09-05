@@ -9,7 +9,7 @@ fi
 
 worker="${SITES_PROJECT_ROOT}/dist/server/index.js"
 hosting="${SITES_PROJECT_ROOT}/dist/.openai/hosting.json"
-latest_migration="${SITES_PROJECT_ROOT}/dist/.openai/drizzle/0023_public_pilot_interest.sql"
+latest_migration="${SITES_PROJECT_ROOT}/dist/.openai/drizzle/0025_stripe_webhook_ordering.sql"
 
 [[ -f "${worker}" ]] || {
   echo "Missing Sites Worker entry: dist/server/index.js" >&2

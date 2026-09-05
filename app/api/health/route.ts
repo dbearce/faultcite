@@ -11,7 +11,7 @@ export async function GET() {
   };
   const healthy = database.status === "fulfilled" && fileStorage.status === "fulfilled";
   return Response.json(
-    { status: healthy ? "ok" : "degraded", service: "faultcite", release: "0.3.5", dependencies, responseTimeMs: Date.now() - startedAt, time: new Date().toISOString() },
+    { status: healthy ? "ok" : "degraded", service: "faultcite", release: "0.3.7", dependencies, responseTimeMs: Date.now() - startedAt, time: new Date().toISOString() },
     { status: healthy ? 200 : 503, headers: { "cache-control": "no-store", ...(healthy ? {} : { "retry-after": "30" }) } },
   );
 }

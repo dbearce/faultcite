@@ -108,7 +108,7 @@ function secure(response: Response, pathname = "", requestId?: string) {
   secured.headers.set("strict-transport-security", "max-age=31536000; includeSubDomains");
   secured.headers.set("permissions-policy", "camera=(self), microphone=(), geolocation=()");
   secured.headers.set("x-robots-tag", "noindex, nofollow, noarchive");
-  secured.headers.set("x-faultcite-release", "0.3.5");
+  secured.headers.set("x-faultcite-release", "0.3.7");
   if (requestId) secured.headers.set("x-faultcite-request-id", requestId);
   if (pathname.startsWith("/api/")) secured.headers.set("cache-control", "private, no-store");
   if (secured.headers.get("content-type")?.includes("text/html")) {

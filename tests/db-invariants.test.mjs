@@ -28,6 +28,8 @@ const migrationNames = [
   "0021_faultcite_auth_identities.sql",
   "0022_curved_unicorn.sql",
   "0023_public_pilot_interest.sql",
+  "0024_stripe_webhook_idempotency.sql",
+  "0025_stripe_webhook_ordering.sql",
 ];
 
 async function createDb() {

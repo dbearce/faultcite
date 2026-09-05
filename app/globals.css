@@ -140,4 +140,6 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .standalone-sign-in-notice{margin:12px 0;padding:12px;border:1px solid #c5dbe8;border-radius:9px;background:#f1f7fa;color:#315a74;line-height:1.45}
 .standalone-sign-in-error{padding:13px;border:1px solid #d7a09b;border-radius:9px;background:#fff6f5;color:#8f302b;line-height:1.45}.standalone-sign-in-error p{margin:0 0 10px}.standalone-sign-in-error .secondary{width:100%}
 .standalone-sign-in-trust{margin:10px 0 0;padding-top:16px;border-top:1px solid var(--line);font-size:12px;text-align:center}
+.faultcite-clerk-hidden{display:none!important}
+.standalone-sign-in-links{display:flex;justify-content:center;gap:10px 16px;flex-wrap:wrap;margin-top:12px;font-size:12px;font-weight:800}.standalone-sign-in-links a{color:#315f7a;text-underline-offset:3px}.standalone-sign-in-links a:focus-visible{outline:3px solid #1b668f;outline-offset:3px;border-radius:2px}
 @media(max-width:680px){.standalone-sign-in{padding:14px}.standalone-sign-in-card{padding:25px 18px}.standalone-sign-in-card h1{font-size:27px}}

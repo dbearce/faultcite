@@ -162,6 +162,27 @@
       "when": 1787894259320,
       "tag": "0022_curved_unicorn",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1788418800000,
+      "tag": "0023_public_pilot_interest",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1788476400000,
+      "tag": "0024_stripe_webhook_idempotency",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1788560164329,
+      "tag": "0025_stripe_webhook_ordering",
+      "breakpoints": true
     }
   ]
 }

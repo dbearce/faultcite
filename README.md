@@ -5,18 +5,19 @@ private evidence, technician observations, manager cause confirmation, restart
 approval, and permanent repair history. It does not replace OEM instructions,
 employer procedures, LOTO, or qualified human judgment.
 
-## Official pilot release
+## Current controlled-pilot release
 
 - Product: FaultCite
-- Release: `v0.9.1-pilot-candidate`
-- Baseline deployed release recovered from immutable Sites version 16 / commit
-  `49023e532c01b843bc0407c799bfa02b2560396a`
-- Pilot access: invitation-only and owner-restricted at the hosting layer
+- Release: `0.3.7`
+- Release source: this repository's `faultcite-v0.3.7` tag
+- Production app: `https://app.faultcite.com`
+- Public website: `https://faultcite.com` after the documented DNS cutover
+- Pilot access: invitation-only, enforced by Clerk identity and company membership
 - Required gates: lint, typecheck, production build, artifact validation,
   database invariant tests, dependency audit, two-account acceptance, physical
   iPhone/Android checks, and documented backup restoration
 
-An outside-company pilot remains blocked until the human-operated acceptance,
+Broader pilot rollout remains blocked until the human-operated acceptance,
 physical-device, backup-restore, and professional legal/safety approvals are
 recorded in the pilot readiness packet.
 

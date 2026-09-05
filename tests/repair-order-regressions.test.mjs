@@ -44,9 +44,9 @@ test("production responses carry a release and request correlation id with struc
   assert.match(worker, /requestId = request\.headers\.get\("cf-ray"\) \|\| crypto\.randomUUID\(\)/);
   assert.match(worker, /\[faultcite-runtime\] unhandled request failure/);
   assert.match(worker, /x-faultcite-request-id/);
-  assert.match(worker, /x-faultcite-release", "0\.3\.5"/);
-  assert.match(health, /release: "0\.3\.5"/);
-  assert.equal(packageJson.version, "0.3.5");
+  assert.match(worker, /x-faultcite-release", "0\.3\.7"/);
+  assert.match(health, /release: "0\.3\.7"/);
+  assert.equal(packageJson.version, "0.3.7");
 });
 
 test("billing is owner-only, server-priced, fail-closed, and uses signed raw-body webhooks", async () => {

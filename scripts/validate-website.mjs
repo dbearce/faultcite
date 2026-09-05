@@ -3,7 +3,7 @@ import path from "node:path";
 
 const root = path.resolve("website");
 const pages = ["index.html", "pilot.html", "security.html", "privacy.html", "terms.html", "support.html", "404.html", "pilot-received.html", "pilot-invalid.html", "pilot-busy.html"];
-const required = [...pages, "styles.css", "forms.css", "robots.txt", "sitemap.xml", "site.webmanifest", "_headers"];
+const required = [...pages, "styles.css", "forms.css", "robots.txt", "sitemap.xml", "site.webmanifest", "_headers", ".well-known/security.txt"];
 for (const file of required) {
   const full = path.join(root, file);
   if (!fs.existsSync(full) || fs.statSync(full).size === 0) throw new Error(`Missing public website file: ${file}`);

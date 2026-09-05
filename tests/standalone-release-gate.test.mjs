@@ -77,7 +77,7 @@ test("staging acceptance and artifact packaging gates are executable", async () 
   ]);
   const pkg = JSON.parse(packageJson);
   assert.equal(pkg.scripts["cf:acceptance"], "bash cloudflare/scripts/acceptance.sh");
-  assert.match(validator, /0023_public_pilot_interest\.sql/);
+  assert.match(validator, /0025_stripe_webhook_ordering\.sql/);
   assert.match(smoke, /forged ChatGPT identity was rejected/);
   for (const role of ["OWNER", "TECHNICIAN", "MANAGER", "OUTSIDER"]) {
     assert.match(acceptance, new RegExp(`FAULTCITE_${role}_TOKEN`));

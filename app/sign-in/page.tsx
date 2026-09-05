@@ -30,6 +30,11 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
         <p className="standalone-sign-in-copy">Use the exact email address from your company invitation.</p>
         <ClerkSignIn publishableKey={publishableKey} frontendApi={frontendApi} returnTo={destination} />
         <p className="standalone-sign-in-trust">Your FaultCite workspace stays separate from ChatGPT.</p>
+        <nav className="standalone-sign-in-links" aria-label="Sign-in help">
+          <a href="https://faultcite.com">Back to FaultCite</a>
+          <a href="https://faultcite.com/pilot.html">Request access</a>
+          <a href="/help">Get help</a>
+        </nav>
       </section>
     </main>
   );
