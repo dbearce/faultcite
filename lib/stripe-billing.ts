@@ -2,6 +2,9 @@ import { getRequestEnv } from "./request-env";
 
 type StripeObject = Record<string, unknown> & { id?: string };
 
+const STRIPE_API_VERSION = "2026-02-25.clover";
+const STRIPE_REQUEST_TIMEOUT_MS = 10_000;
+
 export function stripeBillingConfig() {
   const env = getRequestEnv();
   const secretKey = env.STRIPE_SECRET_KEY?.trim();
@@ -11,18 +14,30 @@ export function stripeBillingConfig() {
 }
 
 export async function stripePost(path: string, fields: Record<string, string>, idempotencyKey?: string): Promise<StripeObject> {
-  const { secretKey } = stripeBillingConfig();
-  if (!secretKey) throw new Error("Billing is not configured");
   const body = new URLSearchParams();
   Object.entries(fields).forEach(([key, value]) => body.set(key, value));
-  const response = await fetch(`https://api.stripe.com/v1/${path.replace(/^\//, "")}`, {
+  return stripeRequest(path, {
     method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded", ...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {}) },
+    body,
+  });
+}
+
+export async function stripeGet(path: string): Promise<StripeObject> {
+  return stripeRequest(path, { method: "GET" });
+}
+
+async function stripeRequest(path: string, init: RequestInit): Promise<StripeObject> {
+  const { secretKey } = stripeBillingConfig();
+  if (!secretKey) throw new Error("Billing is not configured");
+  const response = await fetch(`https://api.stripe.com/v1/${path.replace(/^\//, "")}`, {
+    ...init,
     headers: {
       authorization: `Bearer ${secretKey}`,
-      "content-type": "application/x-www-form-urlencoded",
-      ...(idempotencyKey ? { "idempotency-key": idempotencyKey } : {}),
+      "stripe-version": STRIPE_API_VERSION,
+      ...init.headers,
     },
-    body,
+    signal: AbortSignal.timeout(STRIPE_REQUEST_TIMEOUT_MS),
   });
   const payload = await response.json().catch(() => null) as (StripeObject & { error?: { message?: string } }) | null;
   if (!response.ok || !payload) throw new Error(payload?.error?.message || "Stripe did not accept the billing request");

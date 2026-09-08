@@ -1,8 +1,8 @@
 {
   "product": "FaultCite",
-  "release": "0.3.8",
-  "releaseTag": "faultcite-v0.3.8",
-  "latestMigration": "0026_manual_source_revocation.sql",
+  "release": "0.3.9",
+  "releaseTag": "faultcite-v0.3.9",
+  "latestMigration": "0027_governance_acknowledgement_evidence.sql",
   "productionApp": "https://app.faultcite.com",
   "publicWebsite": "https://faultcite.com",
   "releaseGate": "npm test"

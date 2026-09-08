@@ -108,6 +108,20 @@ export const auditLogs = sqliteTable("audit_logs", {
   id: text("id").primaryKey(), organizationId: text("organization_id").notNull().references(() => organizations.id), actorUserId: text("actor_user_id").notNull().references(() => users.id), action: text("action").notNull(), entityType: text("entity_type").notNull(), entityId: text("entity_id").notNull(), metadataJson: text("metadata_json"), createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
 }, (t) => [index("audit_org_time_idx").on(t.organizationId, t.createdAt)]);
 
+export const governanceAcknowledgements = sqliteTable("governance_acknowledgements", {
+  id: text("id").primaryKey(),
+  organizationId: text("organization_id").notNull().references(() => organizations.id),
+  actorUserId: text("actor_user_id").notNull().references(() => users.id),
+  documentId: text("document_id").notNull(),
+  documentVersion: text("document_version").notNull(),
+  documentHash: text("document_hash").notNull(),
+  acknowledgementText: text("acknowledgement_text").notNull(),
+  acknowledgedAt: integer("acknowledged_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+}, (t) => [
+  index("governance_acknowledgements_org_time_idx").on(t.organizationId, t.acknowledgedAt),
+  index("governance_acknowledgements_actor_idx").on(t.actorUserId),
+]);
+
 export const notifications = sqliteTable("notifications", {
   id: text("id").primaryKey(), organizationId: text("organization_id").notNull().references(() => organizations.id), recipientUserId: text("recipient_user_id").notNull().references(() => users.id), type: text("type").notNull(), caseId: text("case_id").references(() => cases.id), title: text("title").notNull(), message: text("message").notNull(), readAt: integer("read_at", { mode: "timestamp_ms" }), dedupeKey: text("dedupe_key").notNull(), createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
 }, (t) => [uniqueIndex("notifications_recipient_dedupe_uq").on(t.recipientUserId, t.dedupeKey), index("notifications_recipient_read_time_idx").on(t.recipientUserId, t.readAt, t.createdAt), index("notifications_org_idx").on(t.organizationId)]);

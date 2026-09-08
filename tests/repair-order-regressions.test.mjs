@@ -44,9 +44,9 @@ test("production responses carry a release and request correlation id with struc
   assert.match(worker, /requestId = request\.headers\.get\("cf-ray"\) \|\| crypto\.randomUUID\(\)/);
   assert.match(worker, /\[faultcite-runtime\] unhandled request failure/);
   assert.match(worker, /x-faultcite-request-id/);
-  assert.match(worker, /x-faultcite-release", "0\.3\.8"/);
-  assert.match(health, /release: "0\.3\.8"/);
-  assert.equal(packageJson.version, "0.3.8");
+  assert.match(worker, /x-faultcite-release", "0\.3\.9"/);
+  assert.match(health, /release: "0\.3\.9"/);
+  assert.equal(packageJson.version, "0.3.9");
 });
 
 test("billing is owner-only, server-priced, fail-closed, and uses signed raw-body webhooks", async () => {
@@ -65,6 +65,10 @@ test("billing is owner-only, server-priced, fail-closed, and uses signed raw-bod
   assert.ok(webhook.indexOf("verifyStripeSignature") < webhook.indexOf("JSON.parse(rawBody)"));
   assert.match(stripe, /Math\.abs\(Date\.now\(\) \/ 1000 - Number\(timestamp\)\) > 300/);
   assert.match(stripe, /constantTimeEqual/);
+  assert.match(stripe, /"stripe-version": STRIPE_API_VERSION/);
+  assert.match(stripe, /AbortSignal\.timeout\(STRIPE_REQUEST_TIMEOUT_MS\)/);
+  assert.match(webhook, /customer\.subscription\.paused/);
+  assert.match(webhook, /customer\.subscription\.resumed/);
   assert.match(worker, /signedWebhook = url\.pathname === "\/api\/webhooks\/stripe"/);
   for (const field of ["stripeCustomerId", "stripeSubscriptionId", "subscriptionUpdatedAt"]) assert.match(schema, new RegExp(field));
   assert.match(ui, /workspaceRole==="owner"&&<BillingPanel/);

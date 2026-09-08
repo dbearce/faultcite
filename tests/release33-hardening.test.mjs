@@ -4,13 +4,19 @@ import { readFile } from "node:fs/promises";
 
 const read = path => readFile(new URL(path, import.meta.url), "utf8");
 
-test("Stripe webhook state is ordered and duplicate-safe", async () => {
+test("Stripe webhook state is canonical, live-only, price-bound, and duplicate-safe", async () => {
   const [route, schema, migration] = await Promise.all([
     read("../app/api/webhooks/stripe/route.ts"),
     read("../db/schema.ts"),
     read("../drizzle/0025_stripe_webhook_ordering.sql"),
   ]);
-  assert.match(route, /event\.created/);
+  assert.match(route, /event\.livemode !== true/);
+  assert.match(route, /!config\.configured/);
+  assert.match(route, /stripeGet\(`subscriptions\/\$\{encodeURIComponent\(subscriptionId\)\}`\)/);
+  assert.match(route, /subscriptionHasPrice\(subscription, configuredPrice\)/);
+  assert.match(route, /organization\.stripeCustomerId !== customerId/);
+  assert.match(route, /subscription\.pause_collection \? "paused" : status/);
+  assert.doesNotMatch(route, /const newerEvent/);
   assert.match(route, /stripeEventCreatedAt/);
   assert.match(route, /onConflictDoNothing/);
   assert.match(schema, /stripeEventCreatedAt/);

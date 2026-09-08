@@ -31,6 +31,7 @@ const migrationNames = [
   "0024_stripe_webhook_idempotency.sql",
   "0025_stripe_webhook_ordering.sql",
   "0026_manual_source_revocation.sql",
+  "0027_governance_acknowledgement_evidence.sql",
 ];
 
 async function createDb() {

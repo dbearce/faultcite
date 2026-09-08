@@ -4,7 +4,7 @@ import test from "node:test";
 
 const read = path => readFile(new URL(path, import.meta.url), "utf8");
 
-test("release 0.3.8 closes manual, readiness, invitation, and request-size gaps", async () => {
+test("release 0.3.9 closes manual, readiness, invitation, and request-size gaps", async () => {
   const [schema, migration, machines, manuals, sources, bootstrap, readiness, backend, team, stripe] = await Promise.all([
     read("../db/schema.ts"),
     read("../drizzle/0026_manual_source_revocation.sql"),
@@ -42,6 +42,6 @@ test("marketing flow preserves mobile navigation, visible focus, and explicit fo
   for (const page of [received, invalid, busy]) {
     assert.match(page, /Skip to content/);
     assert.match(page, /aria-label="Legal"/);
-    assert.match(page, /Release 0\.3\.8/);
+    assert.match(page, /Release 0\.3\.9/);
   }
 });

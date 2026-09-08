@@ -14,6 +14,7 @@ const clerkSignIn = await readFile(new URL("../app/sign-in/clerk-sign-in.tsx", i
 const sessionStatus = await readFile(new URL("../app/api/auth/session/route.ts", import.meta.url), "utf8");
 const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "utf8");
 const sessionBridge = await readFile(new URL("../app/clerk-session-bridge.tsx", import.meta.url), "utf8");
+const standaloneRunbook = await readFile(new URL("../docs/CLOUDFLARE_STANDALONE_RUNBOOK.md", import.meta.url), "utf8");
 
 test("standalone auth fails closed and verifies Clerk sessions", () => {
   assert.match(auth, /x-faultcite-runtime/);
@@ -83,4 +84,12 @@ test("standalone pages keep Clerk tokens fresh and authenticate same-origin API 
   assert.match(sessionBridge, /url\.pathname\.startsWith\("\/api\/"\)/);
   assert.match(sessionBridge, /headers\.set\("authorization", `Bearer \$\{token\}`\)/);
   assert.match(sessionBridge, /45_000/);
+});
+
+test("Clerk rotation runbook uses runtime bindings and gates deletion on replacement-key proof", () => {
+  assert.match(standaloneRunbook, /runtime variable `CLERK_PUBLISHABLE_KEY`/);
+  assert.doesNotMatch(standaloneRunbook, /NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY/);
+  assert.match(standaloneRunbook, /Prove the replacement key itself handled a post-deployment server API call/);
+  assert.match(standaloneRunbook, /Only after steps 1–5 have dated evidence, revoke or delete the existing default key/);
+  assert.match(standaloneRunbook, /Never store key values or session tokens/);
 });

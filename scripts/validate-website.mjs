@@ -10,7 +10,7 @@ for (const file of required) {
 }
 for (const file of pages) {
   const html = fs.readFileSync(path.join(root, file), "utf8");
-  for (const token of ["<!doctype html>", "<meta name=\"viewport\""]) if (!html.toLowerCase().includes(token.toLowerCase())) throw new Error(`${file} is missing ${token}`);
+  for (const token of ["<!doctype html>", "<meta name=\"viewport\"", "http-equiv=\"Content-Security-Policy\"", "<meta name=\"referrer\""]) if (!html.toLowerCase().includes(token.toLowerCase())) throw new Error(`${file} is missing ${token}`);
   if (/CNC Medic|derekbearce\.chatgpt\.site|\/workspace\/|0\.3\.3 · local/i.test(html)) throw new Error(`${file} contains retired, local, or placeholder content`);
   if (!file.startsWith("pilot-") && file !== "404.html" && !html.includes("rel=\"canonical\"")) throw new Error(`${file} needs a canonical URL`);
   if (!["404.html", "pilot-received.html", "pilot-invalid.html", "pilot-busy.html"].includes(file) && (!html.includes("og:title") || !html.includes("twitter:card"))) throw new Error(`${file} needs social metadata`);

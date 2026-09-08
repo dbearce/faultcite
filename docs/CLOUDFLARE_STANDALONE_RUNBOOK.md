@@ -26,10 +26,23 @@ Staging resources already created by the owner:
 2. Add these Worker secrets directly in Cloudflare; never paste their values into chat or commit them:
    - `CLERK_SECRET_KEY`
    - `RESEND_API_KEY`
-3. Add the Clerk production publishable key as `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` in the build environment. It is not secret, but it must match the production Clerk instance.
+3. Add the Clerk production publishable key as the runtime variable `CLERK_PUBLISHABLE_KEY`. It is not secret, but it must match the production Clerk instance and the `CLERK_SECRET_KEY` configured for that environment.
 4. Configure email sender variables directly in Cloudflare: `FAULTCITE_EMAIL_FROM` and, if required, `FAULTCITE_OWNER_EMAIL` / `FAULTCITE_OWNER_COMPANY`.
 5. Run `npm run cf:check`. Placeholder detection is expected to block deployment until step 1 is complete.
 6. Create a protected backup before migrations or cutover.
+
+## Clerk provider-key rotation
+
+Do not delete or revoke the existing Clerk key until the replacement is proven in production.
+
+1. In the Clerk production instance, create a uniquely labelled replacement secret key. Record only its key ID or redacted fingerprint, creation time and operator; never copy the value into source, chat, screenshots or release evidence.
+2. Replace the production runtime `CLERK_SECRET_KEY` and confirm that runtime `CLERK_PUBLISHABLE_KEY` belongs to the same Clerk production instance. Deploy or restart the application and record the resulting deployment ID and secret revision.
+3. From a clean browser session, complete a fresh email-code sign-in and verify `/api/auth/session` returns `200`, an authenticated `/api/bootstrap` request returns `200` for the correct company, sign-out succeeds, and the signed-out `/api/bootstrap` request returns `401`. Repeat with a second separately verified user.
+4. Prove the replacement key itself handled a post-deployment server API call using the deployment secret audit metadata and Clerk key usage or audit telemetry. Successful sign-in alone is insufficient because an existing session can conceal a stale server key.
+5. Confirm no active, staging or rollback deployment still depends on the existing key, and confirm application logs contain no Clerk authentication failures, identity lookup failures, rejected-session loops or related `5xx` responses during the verification window.
+6. Only after steps 1–5 have dated evidence, revoke or delete the existing default key in Clerk. Immediately repeat the two-user sign-in, authenticated API, sign-out and signed-out `401` checks, and confirm replacement-key usage continues.
+
+The rotation record must contain redacted old and new key identifiers, Clerk production-instance identity, secret-store revision, deployment ID, test times and request IDs, both testers, post-deletion results and the named approver. Never store key values or session tokens in the record.
 
 The restore script is deliberately limited to staging and refuses to import into a D1 database that already contains application tables. Use a newly created isolated staging D1 for every restore rehearsal.
 

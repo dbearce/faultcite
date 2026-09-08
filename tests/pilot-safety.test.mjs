@@ -147,7 +147,7 @@ test("supports technician closeout submission followed by manager approval", () 
 
 test("packages the latest terminal-state database guards", () => {
   assert.match(migrationJournal, /0018_last_nomad/);
-  assert.match(artifactValidator, /0026_manual_source_revocation\.sql/);
+  assert.match(artifactValidator, /0027_governance_acknowledgement_evidence\.sql/);
 });
 
 test("claims invitations before membership access and limits manager invitations", () => {
