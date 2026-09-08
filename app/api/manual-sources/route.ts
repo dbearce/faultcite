@@ -1,4 +1,4 @@
-import { and, eq, gt } from "drizzle-orm";
+import { and, eq, gt, isNull } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { manuals, manualSources } from "../../../db/schema";
 import { apiError, isErrorResponse, requireApiContext } from "../../../lib/backend";
@@ -17,10 +17,11 @@ export async function GET(request: Request) {
     alarmCode: manualSources.alarmCode, sectionTitle: manualSources.sectionTitle,
     pageStart: manualSources.pageStart, pageEnd: manualSources.pageEnd,
     sourceSummary: manualSources.sourceSummary, safetyNotes: manualSources.safetyNotes,
-    approvedAt: manualSources.approvedAt, manualTitle: manuals.title, manualRevision: manuals.revision,
+    approvedAt: manualSources.approvedAt, revokedAt: manualSources.revokedAt, manualTitle: manuals.title, manualRevision: manuals.revision,
   }).from(manualSources).innerJoin(manuals, eq(manualSources.manualId, manuals.id)).where(and(
     eq(manualSources.organizationId, ctx.organizationId),
     eq(manualSources.machineId, machineId),
+    isNull(manualSources.revokedAt),
     eq(manuals.organizationId, ctx.organizationId),
     eq(manuals.status, "approved"),
     gt(manuals.revalidationDueAt, new Date()),

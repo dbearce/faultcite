@@ -1,6 +1,6 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../../db";
-import { auditLogs, cases, machines } from "../../../db/schema";
+import { auditLogs, cases, machines, manualSources } from "../../../db/schema";
 import { apiError, cleanText, isErrorResponse, requireApiContext } from "../../../lib/backend";
 
 export async function GET() {
@@ -41,9 +41,11 @@ export async function PATCH(request: Request) {
   if (!changed) return Response.json({ machine: existing });
   const [activeCase] = await db.select({ id: cases.id }).from(cases).where(and(eq(cases.organizationId, ctx.organizationId), eq(cases.machineId, id), inArray(cases.status, ["open", "diagnosing", "review_requested", "cause_confirmed", "closeout_requested", "escalated"]))).limit(1);
   if (activeCase) return apiError("Machine identity cannot be changed while it has an active case", 409);
+  const now = new Date();
   await db.batch([
     db.update(machines).set(next).where(eq(machines.id, id)),
-    db.insert(auditLogs).values({ id: crypto.randomUUID(), organizationId: ctx.organizationId, actorUserId: ctx.userId, action: "machine.identity_corrected", entityType: "machine", entityId: id, metadataJson: JSON.stringify({ before: { assetNumber: existing.assetNumber, manufacturer: existing.manufacturer, model: existing.model, serialNumber: existing.serialNumber, control: existing.control, location: existing.location }, after: next }), createdAt: new Date() }),
+    db.update(manualSources).set({ revokedAt: now }).where(and(eq(manualSources.organizationId, ctx.organizationId), eq(manualSources.machineId, id))),
+    db.insert(auditLogs).values({ id: crypto.randomUUID(), organizationId: ctx.organizationId, actorUserId: ctx.userId, action: "machine.identity_corrected", entityType: "machine", entityId: id, metadataJson: JSON.stringify({ before: { assetNumber: existing.assetNumber, manufacturer: existing.manufacturer, model: existing.model, serialNumber: existing.serialNumber, control: existing.control, location: existing.location }, after: next, manualSourceApprovalsRevoked: true }), createdAt: now }),
   ]);
   return Response.json({ machine: { ...existing, ...next } });
 }

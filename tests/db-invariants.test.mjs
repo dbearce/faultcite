@@ -30,6 +30,7 @@ const migrationNames = [
   "0023_public_pilot_interest.sql",
   "0024_stripe_webhook_idempotency.sql",
   "0025_stripe_webhook_ordering.sql",
+  "0026_manual_source_revocation.sql",
 ];
 
 async function createDb() {

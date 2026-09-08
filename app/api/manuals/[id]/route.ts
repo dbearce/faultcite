@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "../../../../db";
 import { auditLogs, manuals, manualSources } from "../../../../db/schema";
 import { apiError, cleanText, isErrorResponse, requireApiContext } from "../../../../lib/backend";
@@ -7,7 +7,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const ctx = await requireApiContext(); if (isErrorResponse(ctx)) return ctx; const { id } = await params; const db = await getDb();
   const [manual] = await db.select().from(manuals).where(and(eq(manuals.id, id), eq(manuals.organizationId, ctx.organizationId))).limit(1);
   if (!manual) return apiError("Manual not found in your company", 404);
-  if (!["owner", "manager"].includes(ctx.role) && manual.status !== "approved") return apiError("This manual is not approved for technician access", 403);
+  if (!["owner", "manager"].includes(ctx.role) && (manual.status !== "approved" || !manual.revalidationDueAt || manual.revalidationDueAt.valueOf() <= Date.now())) return apiError("This manual is not currently approved for technician access", 403);
   const { env } = await import("cloudflare:workers"); const object = await env.BUCKET.get(manual.objectKey); if (!object) return apiError("Manual file is unavailable", 404);
   return new Response(object.body, { headers: { "content-type": "application/pdf", "content-disposition": `inline; filename="${manual.fileName.replace(/[\r\n\"]+/g, "_")}"`, "cache-control": "private, no-store", "x-content-type-options": "nosniff" } });
 }
@@ -33,8 +33,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!Number.isFinite(candidate.valueOf()) || candidate.valueOf() <= Date.now()) return apiError("Choose a future revalidation date");
     revalidationDueAt = candidate;
   }
+  const invalidatesSources = status !== "approved" || (manual.status === "approved" && (!manual.revalidationDueAt || manual.revalidationDueAt.valueOf() <= now.valueOf()));
   await db.batch([
     db.update(manuals).set({ status, reviewNotes, revalidationDueAt, reviewedByUserId: ctx.userId, reviewedAt: now, updatedAt: now }).where(and(eq(manuals.id, id), eq(manuals.organizationId, ctx.organizationId))),
+    ...(invalidatesSources ? [db.update(manualSources).set({ revokedAt: now }).where(and(eq(manualSources.manualId, id), eq(manualSources.organizationId, ctx.organizationId), isNull(manualSources.revokedAt)))] : []),
     db.insert(auditLogs).values({ id: crypto.randomUUID(), organizationId: ctx.organizationId, actorUserId: ctx.userId, action: `manual.${status}`, entityType: "manual", entityId: id, metadataJson: JSON.stringify({ reviewNotes }), createdAt: now }),
   ]);
   return Response.json({ manual: { ...manual, status, reviewNotes, revalidationDueAt, reviewedByUserId: ctx.userId, reviewedAt: now, updatedAt: now } });

@@ -8,8 +8,8 @@ employer procedures, LOTO, or qualified human judgment.
 ## Current controlled-pilot release
 
 - Product: FaultCite
-- Release: `0.3.7`
-- Release source: this repository's `faultcite-v0.3.7` tag
+- Release: `0.3.8`
+- Release source: this repository's `faultcite-v0.3.8` tag
 - Production app: `https://app.faultcite.com`
 - Public website: `https://faultcite.com` after the documented DNS cutover
 - Pilot access: invitation-only, enforced by Clerk identity and company membership

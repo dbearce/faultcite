@@ -183,6 +183,13 @@
       "when": 1788560164329,
       "tag": "0025_stripe_webhook_ordering",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "6",
+      "when": 1788806400000,
+      "tag": "0026_manual_source_revocation",
+      "breakpoints": true
     }
   ]
 }

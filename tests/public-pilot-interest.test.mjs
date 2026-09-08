@@ -15,6 +15,8 @@ test("public pilot interest is origin-limited, rate-limited, stored, and spam gu
   assert.match(route, /form\.get\("website"\)/);
   assert.match(route, /INSERT INTO pilot_interest/);
   assert.match(route, /AbortSignal\.timeout\(10_000\)/);
+  assert.match(route, /pilot-\$\{status\}\.html/);
+  assert.match(route, /readLimitedBody\(request, 64 \* 1024\)/);
   assert.match(worker, /publicPilotInterest/);
   assert.match(migration, /CREATE TABLE `pilot_interest`/);
   assert.match(pilot, /method="post"/);

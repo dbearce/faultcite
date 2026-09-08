@@ -1,8 +1,8 @@
 {
   "product": "FaultCite",
-  "release": "0.3.7",
-  "releaseTag": "faultcite-v0.3.7",
-  "latestMigration": "0025_stripe_webhook_ordering.sql",
+  "release": "0.3.8",
+  "releaseTag": "faultcite-v0.3.8",
+  "latestMigration": "0026_manual_source_revocation.sql",
   "productionApp": "https://app.faultcite.com",
   "publicWebsite": "https://faultcite.com",
   "releaseGate": "npm test"

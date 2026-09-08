@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "../../../db";
 import { auditLogs, invitations, memberships, organizations, users } from "../../../db/schema";
 import { apiError, cleanText, enforceRateLimit, isErrorResponse, requireApiContext } from "../../../lib/backend";
@@ -45,8 +45,8 @@ export async function POST(request: Request) {
   let id = "";
 
   if (resendInvitationId) {
-    const [pending] = await db.select().from(invitations).where(and(eq(invitations.id, resendInvitationId), eq(invitations.organizationId, ctx.organizationId), eq(invitations.status, "pending"))).limit(1);
-    if (!pending) return apiError("Pending invitation not found", 404);
+    const [pending] = await db.select().from(invitations).where(and(eq(invitations.id, resendInvitationId), eq(invitations.organizationId, ctx.organizationId), inArray(invitations.status, ["pending", "accepting"]))).limit(1);
+    if (!pending) return apiError("Open invitation not found", 404);
     id = pending.id;
     email = pending.email;
     role = pending.role;
@@ -141,8 +141,8 @@ export async function DELETE(request: Request) {
   if (!["owner", "manager"].includes(ctx.role)) return apiError("Manager permission required", 403);
   const limited = await enforceRateLimit(ctx, "team-administration", 30, 3600); if (limited) return limited;
   const id = new URL(request.url).searchParams.get("id") || "";
-  const db = await getDb(); const [invite] = await db.select().from(invitations).where(and(eq(invitations.id, id), eq(invitations.organizationId, ctx.organizationId), eq(invitations.status, "pending"))).limit(1);
-  if (!invite) return apiError("Pending invitation not found", 404);
+  const db = await getDb(); const [invite] = await db.select().from(invitations).where(and(eq(invitations.id, id), eq(invitations.organizationId, ctx.organizationId), inArray(invitations.status, ["pending", "accepting"]))).limit(1);
+  if (!invite) return apiError("Open invitation not found", 404);
   const now = new Date();
   await db.batch([
     db.update(invitations).set({ status: "revoked", revokedAt: now, tokenHash: null, updatedAt: now }).where(eq(invitations.id, id)),

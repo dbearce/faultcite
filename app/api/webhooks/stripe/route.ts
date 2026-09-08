@@ -9,7 +9,9 @@ export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
   const { webhookSecret } = stripeBillingConfig();
   if (!signature || !webhookSecret) return Response.json({ error: "Billing webhook is not configured" }, { status: 503 });
-  const rawBody = await request.text();
+  let rawBody: string;
+  try { rawBody = await readLimitedText(request, 1024 * 1024); }
+  catch { return Response.json({ error: "Stripe event is too large" }, { status: 413 }); }
   if (!(await verifyStripeSignature(rawBody, signature, webhookSecret))) return Response.json({ error: "Invalid Stripe signature" }, { status: 400 });
   let event: StripeEvent;
   try { event = JSON.parse(rawBody) as StripeEvent; } catch { return Response.json({ error: "Invalid Stripe event" }, { status: 400 }); }
@@ -54,4 +56,28 @@ export async function POST(request: Request) {
   await db.insert(stripeWebhookEvents).values({ eventId: event.id, eventType: event.type, processedAt: new Date() }).onConflictDoNothing();
   console.info("[faultcite-billing] webhook processed", { eventId: event.id || "unknown", eventType: event.type || "unknown", matched: Boolean(identityWhere) });
   return Response.json({ received: true });
+}
+
+async function readLimitedText(request: Request, maximumBytes: number) {
+  const declaredLength = Number(request.headers.get("content-length") || 0);
+  if (!Number.isFinite(declaredLength) || declaredLength > maximumBytes) throw new Error("Request body is too large");
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maximumBytes) throw new Error("Request body is too large");
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return new TextDecoder().decode(bytes);
 }

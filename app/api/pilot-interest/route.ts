@@ -5,15 +5,20 @@ function clean(value: FormDataEntryValue | null, maximum: number) {
 }
 
 function redirectToPilot(status: "received" | "invalid" | "busy") {
-  return Response.redirect(`${MARKETING_ORIGIN}/pilot.html?status=${status}`, 303);
+  return Response.redirect(`${MARKETING_ORIGIN}/pilot-${status}.html`, 303);
 }
 
 export async function POST(request: Request) {
   const { env } = await import("cloudflare:workers");
   const origin = request.headers.get("origin");
   if (origin !== MARKETING_ORIGIN && origin !== "https://www.faultcite.com") return Response.json({ error: "Origin not allowed" }, { status: 403 });
+  const declaredLength = Number(request.headers.get("content-length") || 0);
+  if (!Number.isFinite(declaredLength) || declaredLength > 64 * 1024) return redirectToPilot("invalid");
   let form: FormData;
-  try { form = await request.formData(); } catch { return redirectToPilot("invalid"); }
+  try {
+    const bytes = await readLimitedBody(request, 64 * 1024);
+    form = await new Request(request.url, { method: "POST", headers: request.headers, body: bytes }).formData();
+  } catch { return redirectToPilot("invalid"); }
   if (clean(form.get("website"), 200)) return redirectToPilot("received");
   const name = clean(form.get("name"), 120);
   const email = clean(form.get("email"), 254).toLowerCase();
@@ -40,4 +45,26 @@ export async function POST(request: Request) {
     } catch { console.warn("[faultcite-pilot-interest] notification delivery failed"); }
   }
   return redirectToPilot("received");
+}
+
+async function readLimitedBody(request: Request, maximumBytes: number) {
+  if (!request.body) return new Uint8Array();
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maximumBytes) throw new Error("Request body is too large");
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return bytes;
 }

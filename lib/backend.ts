@@ -44,8 +44,13 @@ export async function requireApiContext(): Promise<RequestContext | Response> {
     await db.insert(userSettings).values({ userId: user.id, selectedOrganizationId: firstEnabled.organizationId });
     settings = { userId: user.id, selectedOrganizationId: firstEnabled.organizationId, updatedAt: new Date() };
   }
-  const [membership] = await db.select().from(memberships).where(and(eq(memberships.userId, user.id), eq(memberships.organizationId, settings.selectedOrganizationId || ""), eq(memberships.active, true))).limit(1);
-  if (!membership) return apiError("Your access to the selected company is disabled. Ask a company owner to restore it.", 403);
+  let [membership] = await db.select().from(memberships).where(and(eq(memberships.userId, user.id), eq(memberships.organizationId, settings.selectedOrganizationId || ""), eq(memberships.active, true))).limit(1);
+  if (!membership) {
+    const [fallback] = await db.select().from(memberships).where(and(eq(memberships.userId, user.id), eq(memberships.active, true))).orderBy(desc(memberships.updatedAt)).limit(1);
+    if (!fallback) return apiError("No enabled company membership", 403);
+    await db.update(userSettings).set({ selectedOrganizationId: fallback.organizationId, updatedAt: new Date() }).where(eq(userSettings.userId, user.id));
+    membership = fallback;
+  }
   const [organization] = await db.select().from(organizations).where(eq(organizations.id, membership.organizationId)).limit(1);
   if (!organization || organization.status === "suspended" || organization.status === "archived") return apiError("This company workspace is not active", 403);
   const [admin] = await db.select().from(platformAdmins).where(and(eq(platformAdmins.userId, user.id), eq(platformAdmins.active, true))).limit(1);

@@ -97,6 +97,7 @@ export const manualSources = sqliteTable("manual_sources", {
   sourceSummary: text("source_summary").notNull(),
   safetyNotes: text("safety_notes").notNull(),
   approvedAt: integer("approved_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  revokedAt: integer("revoked_at", { mode: "timestamp_ms" }),
   createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
 }, (t) => [
   index("manual_sources_org_machine_idx").on(t.organizationId, t.machineId),
