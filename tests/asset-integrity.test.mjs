@@ -23,8 +23,13 @@ test("authenticated HTML references only packaged client assets", async () => {
   );
   assert.equal(response.status, 200);
   const html = await response.text();
-  const assets = [...new Set(html.match(/\/assets\/[A-Za-z0-9_.-]+/g) || [])];
-  assert.ok(assets.length >= 2, "expected the rendered shell to reference packaged JS and CSS assets");
+  const assets = [
+    ...new Set(
+      html.match(/\/(?:assets\/[A-Za-z0-9_.-]+|_next\/static\/(?:chunks|css)\/[A-Za-z0-9_.-]+)/g) || [],
+    ),
+  ];
+  assert.ok(assets.some((asset) => asset.endsWith(".js")), "expected the rendered shell to reference packaged JS");
+  assert.ok(assets.some((asset) => asset.endsWith(".css")), "expected the rendered shell to reference packaged CSS");
   for (const asset of assets) await access(resolve(projectRoot, "dist/client", asset.slice(1)));
 });
 
