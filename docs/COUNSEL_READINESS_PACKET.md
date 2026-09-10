@@ -68,7 +68,7 @@ Counsel should determine the appropriate documents for the confirmed entity, loc
 | Blocker | Industrial maintenance creates safety/product-liability exposure a website disclaimer cannot resolve. | Obtain written counsel, safety-adviser, and insurance review. |
 | High | Privacy disclosures are category-level and do not fully reflect the observed vendor/data inventory. | Validate the data map, contracts, retention, rights process, and notice with counsel. |
 | High | Retention is configurable from 365 to 3,650 days and defaults to 2,555 days, but an executed deletion/backups/legal-hold process was not established in this review. | Document and test the lifecycle before making stronger claims. |
-| High | Support addresses are inconsistent (`admin@faultcite.com` and `support@faultcite.com`) and no staffed commitment is documented. | Name owners, hours, escalation routes, and approved promises. |
+| High | `support@faultcite.com` is the standardized customer-support address, but no staffed commitment is documented. | Confirm mailbox ownership and name hours, escalation routes, and approved promises. |
 | High | Security statements need a dated evidence file and clear separation of current versus planned controls. | Security owner substantiates each statement; counsel reviews marketing risk. |
 
 ## Governance acknowledgement evidence

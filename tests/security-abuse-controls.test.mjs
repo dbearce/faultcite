@@ -3,10 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const read = path => readFile(new URL(path, import.meta.url), "utf8");
-const [backend, team, chunk, finalize, evidence, exportRoute, schema, migration, worker] = await Promise.all([
+const [backend, team, chunk, finalize, evidence, exportRoute, schema, migration, worker, securityHeaders] = await Promise.all([
   read("../lib/backend.ts"), read("../app/api/team/route.ts"), read("../app/api/manuals/upload-chunk/route.ts"),
   read("../app/api/manuals/finalize-upload/route.ts"), read("../app/api/cases/[id]/evidence/route.ts"),
-  read("../app/api/export/route.ts"), read("../db/schema.ts"), read("../drizzle/0017_faultcite_abuse_controls.sql"), read("../worker/index.ts"),
+  read("../app/api/export/route.ts"), read("../db/schema.ts"), read("../drizzle/0017_faultcite_abuse_controls.sql"), read("../worker/index.ts"), read("../lib/security-headers.ts"),
 ]);
 
 test("persists distributed application rate limits for sensitive operations", () => {
@@ -34,7 +34,8 @@ test("binds chunked manual uploads to expiring user sessions and company quotas"
 });
 
 test("removes eval from CSP and adds cross-origin isolation headers", () => {
-  assert.doesNotMatch(worker, /script-src[^;]*unsafe-eval/);
-  assert.match(worker, /cross-origin-opener-policy/);
-  assert.match(worker, /cross-origin-resource-policy/);
+  assert.match(worker, /applyAppSecurityHeaders/);
+  assert.doesNotMatch(securityHeaders, /script-src[^;]*unsafe-eval/);
+  assert.match(securityHeaders, /Cross-Origin-Opener-Policy/);
+  assert.match(securityHeaders, /Cross-Origin-Resource-Policy/);
 });

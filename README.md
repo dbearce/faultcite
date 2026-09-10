@@ -9,7 +9,7 @@ employer procedures, LOTO, or qualified human judgment.
 
 - Product: FaultCite
 - Release: `0.3.9`
-- Release source: this repository's `faultcite-v0.3.9` tag
+- Planned release source: this repository's `faultcite-v0.3.9` tag, created only after the exact merged commit passes every release gate
 - Production app: `https://app.faultcite.com`
 - Public website: `https://faultcite.com` after the documented DNS cutover
 - Pilot access: invitation-only, enforced by Clerk identity and company membership

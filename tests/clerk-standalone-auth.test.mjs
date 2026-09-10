@@ -9,6 +9,7 @@ const migration = await readFile(new URL("../drizzle/0021_faultcite_auth_identit
 const signOut = await readFile(new URL("../app/api/auth/sign-out/route.ts", import.meta.url), "utf8");
 const inviteEmail = await readFile(new URL("../lib/invitation-email.ts", import.meta.url), "utf8");
 const worker = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
+const securityHeaders = await readFile(new URL("../lib/security-headers.ts", import.meta.url), "utf8");
 const signInPage = await readFile(new URL("../app/sign-in/page.tsx", import.meta.url), "utf8");
 const clerkSignIn = await readFile(new URL("../app/sign-in/clerk-sign-in.tsx", import.meta.url), "utf8");
 const sessionStatus = await readFile(new URL("../app/api/auth/session/route.ts", import.meta.url), "utf8");
@@ -70,8 +71,9 @@ test("standalone sign-in establishes the Clerk session on the FaultCite origin",
   assert.doesNotMatch(clerkSignIn, /next\/script/);
   assert.match(clerkSignIn, /signUpFallbackRedirectUrl/);
   assert.match(clerkSignIn, /window\.location\.replace\(returnTo\)/);
-  assert.match(worker, /https:\/\/clerk\.faultcite\.com/);
-  assert.match(worker, /https:\/\/challenges\.cloudflare\.com/);
+  assert.match(worker, /applyAppSecurityHeaders/);
+  assert.match(securityHeaders, /https:\/\/clerk\.faultcite\.com/);
+  assert.match(securityHeaders, /https:\/\/challenges\.cloudflare\.com/);
   assert.match(sessionStatus, /status: user \? 200 : 401/);
   assert.match(sessionStatus, /private, no-store/);
 });
