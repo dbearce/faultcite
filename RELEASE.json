@@ -5,5 +5,13 @@
   "latestMigration": "0027_governance_acknowledgement_evidence.sql",
   "productionApp": "https://app.faultcite.com",
   "publicWebsite": "https://faultcite.com",
-  "releaseGate": "npm test"
+  "releaseGate": "npm test",
+  "dependencyGate": "npm audit --audit-level=high",
+  "manualGates": [
+    "four-account two-company acceptance",
+    "physical iPhone and Android acceptance",
+    "backup restore and object reconciliation",
+    "monitoring alert delivery and rollback proof",
+    "legal safety insurance and owner approval"
+  ]
 }

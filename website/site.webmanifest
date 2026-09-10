@@ -7,5 +7,13 @@
   "background_color": "#f5f3ed",
   "theme_color": "#10243a",
   "id": "/",
-  "scope": "/"
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
 }

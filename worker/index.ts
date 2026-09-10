@@ -2,6 +2,7 @@
 import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } from "vinext/server/image-optimization";
 import handler from "vinext/server/app-router-entry";
 import { runWithRequestEnv } from "../lib/request-env";
+import { applyAppSecurityHeaders } from "../lib/security-headers";
 
 interface Env {
   ASSETS: Fetcher;
@@ -11,6 +12,7 @@ interface Env {
   STRIPE_SECRET_KEY?: string;
   STRIPE_PRICE_ID?: string;
   STRIPE_WEBHOOK_SECRET?: string;
+  FAULTCITE_PAID_BILLING_ENABLED?: string;
   RESEND_API_KEY?: string;
   FAULTCITE_CONTACT_EMAIL?: string;
   FAULTCITE_EMAIL_FROM?: string;
@@ -100,21 +102,13 @@ const worker = {
 
 function secure(response: Response, pathname = "", requestId?: string) {
   const secured = new Response(response.body, response);
-  secured.headers.set("x-content-type-options", "nosniff");
-  secured.headers.set("referrer-policy", "same-origin");
-  secured.headers.set("x-frame-options", "DENY");
-  secured.headers.set("cross-origin-opener-policy", "same-origin");
-  secured.headers.set("cross-origin-resource-policy", "same-origin");
-  secured.headers.set("strict-transport-security", "max-age=31536000; includeSubDomains");
-  secured.headers.set("permissions-policy", "camera=(self), microphone=(), geolocation=()");
-  secured.headers.set("x-robots-tag", "noindex, nofollow, noarchive");
+  applyAppSecurityHeaders(secured.headers);
   secured.headers.set("x-faultcite-release", "0.3.9");
   if (requestId) secured.headers.set("x-faultcite-request-id", requestId);
   if (pathname.startsWith("/api/")) secured.headers.set("cache-control", "private, no-store");
   if (secured.headers.get("content-type")?.includes("text/html")) {
     secured.headers.set("cache-control", "private, no-store, max-age=0, must-revalidate");
   }
-  secured.headers.set("content-security-policy", "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://accounts.faultcite.com; img-src 'self' data: blob: https://img.clerk.com https://clerk.faultcite.com; font-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://clerk.faultcite.com https://challenges.cloudflare.com; connect-src 'self' https://clerk.faultcite.com https://accounts.faultcite.com; frame-src https://clerk.faultcite.com https://accounts.faultcite.com https://challenges.cloudflare.com; manifest-src 'self'; worker-src 'self' blob:");
   return secured;
 }
 

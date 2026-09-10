@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://faultcite.com/</loc></url>
-  <url><loc>https://faultcite.com/pilot.html</loc></url>
-  <url><loc>https://faultcite.com/security.html</loc></url>
-  <url><loc>https://faultcite.com/privacy.html</loc></url>
-  <url><loc>https://faultcite.com/terms.html</loc></url>
-  <url><loc>https://faultcite.com/support.html</loc></url>
+  <url><loc>https://faultcite.com/pilot</loc></url>
+  <url><loc>https://faultcite.com/security</loc></url>
+  <url><loc>https://faultcite.com/privacy</loc></url>
+  <url><loc>https://faultcite.com/terms</loc></url>
+  <url><loc>https://faultcite.com/support</loc></url>
 </urlset>

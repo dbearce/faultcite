@@ -1,0 +1,38 @@
+name: Release gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-gate:
+    name: Node 22.13 / test / audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22.13.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+
+      - name: Install locked dependencies
+        run: npm run install:ci
+
+      - name: Run release tests
+        run: npm test
+
+      - name: Reject high and critical dependency advisories
+        run: npm audit --audit-level=high

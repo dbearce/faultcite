@@ -10,7 +10,8 @@ export function stripeBillingConfig() {
   const secretKey = env.STRIPE_SECRET_KEY?.trim();
   const priceId = env.STRIPE_PRICE_ID?.trim();
   const webhookSecret = env.STRIPE_WEBHOOK_SECRET?.trim();
-  return { secretKey, priceId, webhookSecret, configured: Boolean(secretKey && priceId && webhookSecret) };
+  const enabled = env.FAULTCITE_PAID_BILLING_ENABLED?.trim().toLowerCase() === "true";
+  return { secretKey, priceId, webhookSecret, enabled, configured: Boolean(enabled && secretKey && priceId && webhookSecret) };
 }
 
 export async function stripePost(path: string, fields: Record<string, string>, idempotencyKey?: string): Promise<StripeObject> {

@@ -13,6 +13,7 @@ export type RequestRuntimeEnv = {
   STRIPE_SECRET_KEY?: string;
   STRIPE_PRICE_ID?: string;
   STRIPE_WEBHOOK_SECRET?: string;
+  FAULTCITE_PAID_BILLING_ENABLED?: string;
 };
 
 const requestEnvironment = new AsyncLocalStorage<RequestRuntimeEnv>();

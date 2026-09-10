@@ -27,6 +27,7 @@ const layout = await readFile(new URL("../app/layout.tsx", import.meta.url), "ut
 const caseEditRoute = await readFile(new URL("../app/api/cases/[id]/route.ts", import.meta.url), "utf8");
 const escalationRoute = await readFile(new URL("../app/api/cases/[id]/escalation/route.ts", import.meta.url), "utf8");
 const worker = await readFile(new URL("../worker/index.ts", import.meta.url), "utf8");
+const securityHeaders = await readFile(new URL("../lib/security-headers.ts", import.meta.url), "utf8");
 const closeoutRequestRoute = await readFile(new URL("../app/api/cases/[id]/request-closeout/route.ts", import.meta.url), "utf8");
 const migrationJournal = await readFile(new URL("../drizzle/meta/_journal.json", import.meta.url), "utf8");
 const artifactValidator = await readFile(new URL("../scripts/validate-artifact.sh", import.meta.url), "utf8");
@@ -94,7 +95,7 @@ test("provides visible sign-out controls and blocks indexing", () => {
 
 test("uses the FaultCite contact mailbox without exposing the owner's personal email", () => {
   assert.match(helpPage, /FAULTCITE_CONTACT_EMAIL/);
-  assert.match(helpPage, /admin@faultcite\.com/);
+  assert.match(helpPage, /support@faultcite\.com/);
   assert.doesNotMatch(helpPage, /derekbearce@outlook\.com/i);
 });
 
@@ -130,7 +131,8 @@ test("uses authoritative confirmed cause and central security headers", () => {
   assert.equal(source.includes("confirmedCause: cause"), false);
   assert.match(source, /MANAGER-CONFIRMED CAUSE/);
   assert.match(worker, /Cross-site request blocked/);
-  assert.match(worker, /content-security-policy/);
+  assert.match(worker, /applyAppSecurityHeaders/);
+  assert.match(securityHeaders, /Content-Security-Policy/);
   assert.equal(layout.includes("next\/font"), false);
 });
 
@@ -265,7 +267,7 @@ test("makes failure and pending states visible to technicians", () => {
   assert.match(source, /Saving case…/);
   assert.match(source, /historyRequestKey/);
   assert.match(source, /Why guidance is withheld/);
-  assert.match(source, /p\.error && <div className="error" role="alert"/);
+  assert.match(source, /p\.error && <div ref=\{errorRef\} tabIndex=\{-1\} id="diagnostic-error" className="error" role="alert"/);
 });
 
 test("polishes plant-floor navigation without creating duplicate machine cases", () => {

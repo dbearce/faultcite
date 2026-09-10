@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   let body: { action?: string };
   try { body = await request.json() as { action?: string }; } catch { return apiError("Invalid billing request"); }
   const config = stripeBillingConfig();
-  if (!config.configured) return apiError("Billing setup is incomplete. Add the Stripe secret, price, and webhook secret before starting a subscription.", 503);
+  if (!config.configured) return apiError("Paid billing is not enabled. Complete the Stripe setup and launch approval before starting a subscription.", 503);
   const env = getRequestEnv();
   const appOrigin = env.FAULTCITE_APP_ORIGIN?.trim();
   if (!appOrigin?.startsWith("https://")) return apiError("Billing return URL is not configured", 503);

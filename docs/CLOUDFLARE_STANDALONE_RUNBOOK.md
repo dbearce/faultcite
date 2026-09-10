@@ -13,6 +13,7 @@ This runbook prepares a separate Clerk-authenticated Cloudflare deployment. It d
 | D1 binding | `DB` |
 | R2 binding | `BUCKET` |
 | Static-assets binding | `ASSETS` |
+| Paid billing launch switch | `FAULTCITE_PAID_BILLING_ENABLED=false` until commercial approval and live Stripe acceptance are complete |
 
 Staging resources already created by the owner:
 
@@ -30,6 +31,10 @@ Staging resources already created by the owner:
 4. Configure email sender variables directly in Cloudflare: `FAULTCITE_EMAIL_FROM` and, if required, `FAULTCITE_OWNER_EMAIL` / `FAULTCITE_OWNER_COMPANY`.
 5. Run `npm run cf:check`. Placeholder detection is expected to block deployment until step 1 is complete.
 6. Create a protected backup before migrations or cutover.
+
+## Paid billing launch switch
+
+Stripe credentials alone do not enable checkout, the customer portal, or webhook processing. `FAULTCITE_PAID_BILLING_ENABLED` defaults off and must remain `false` through staging setup and production deployment. Set it to `true` only after the live product and price, signed webhook, commercial disclosures, counsel approval, and Stripe acceptance evidence have been approved. Turning the switch back to `false` fails billing closed without removing or exposing stored credentials.
 
 ## Clerk provider-key rotation
 

@@ -10,7 +10,7 @@ This directory is the public marketing surface for `https://faultcite.com`.
 
 ## Deployment
 
-Deploy this directory as a static site using a separate Cloudflare Pages/static deployment from the authenticated application Worker. The production app remains governed by `OPERATIONS_RUNBOOK.md` and `PILOT_ACCEPTANCE.md`.
+Deploy this directory as a static site using a separate Cloudflare Pages/static deployment from the authenticated application Worker. The production app remains governed by [`docs/CLOUDFLARE_STANDALONE_RUNBOOK.md`](../docs/CLOUDFLARE_STANDALONE_RUNBOOK.md) and [`docs/STAGING_HUMAN_ACCEPTANCE.md`](../docs/STAGING_HUMAN_ACCEPTANCE.md).
 
 The site deliberately makes no unverified uptime, security-certification, savings, diagnostic-accuracy, or customer-count claims. The pilot CTA uses `support@faultcite.com`, and authenticated users are routed to `https://app.faultcite.com`.
 
@@ -22,6 +22,8 @@ Before connecting `faultcite.com`:
 2. Test keyboard navigation, visible focus, 200% zoom, reduced motion, iOS Safari and Android Chrome.
 3. Verify every `app.faultcite.com` and legal/support link.
 4. Confirm `support@faultcite.com` receives pilot inquiries.
-5. Verify HTTPS and redirects from `www.faultcite.com` to the chosen canonical host.
-6. Keep the application and marketing deployments isolated so a marketing change cannot modify the authenticated Worker.
+5. Confirm `security@faultcite.com` is monitored before publishing the security contact.
+6. Verify HTTPS and redirects from `www.faultcite.com` to the chosen canonical host.
+7. Keep the application and marketing deployments isolated so a marketing change cannot modify the authenticated Worker.
 
+`_redirects` permanently normalizes legacy `.html` page paths. The `www.faultcite.com` to `faultcite.com` host redirect must be configured as a path-preserving 301 Redirect Rule in Cloudflare because Pages `_redirects` rules match paths, not hostnames.

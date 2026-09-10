@@ -143,3 +143,9 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .faultcite-clerk-hidden{display:none!important}
 .standalone-sign-in-links{display:flex;justify-content:center;gap:10px 16px;flex-wrap:wrap;margin-top:12px;font-size:12px;font-weight:800}.standalone-sign-in-links a{color:#315f7a;text-underline-offset:3px}.standalone-sign-in-links a:focus-visible{outline:3px solid #1b668f;outline-offset:3px;border-radius:2px}
 @media(max-width:680px){.standalone-sign-in{padding:14px}.standalone-sign-in-card{padding:25px 18px}.standalone-sign-in-card h1{font-size:27px}}
+
+/* Accessibility: make validation actionable and keep field tools available on reflow. */
+.field [aria-invalid="true"],.confirm-check:has(input[aria-invalid="true"]){border-color:#a72f34;background:#fff6f5}
+.confirm-check:has(input:focus-visible){outline:3px solid #1b668f;outline-offset:2px}
+.error:focus{outline:3px solid #a72f34;outline-offset:3px}
+@media(max-width:680px){.topbar .mobile-logo{display:none}.top-actions .search{display:grid;width:42px;height:42px}.top-actions{gap:6px}}
