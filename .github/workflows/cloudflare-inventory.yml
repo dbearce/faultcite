@@ -58,6 +58,27 @@ jobs:
           jq -e '.success == true' "$RUNNER_TEMP/workers.json" > /dev/null
           jq -r '.result[]?.id | select(startswith("faultcite-"))' "$RUNNER_TEMP/workers.json"
 
+      - name: Inspect staging binding metadata
+        shell: bash
+        run: |
+          curl --fail-with-body --silent --show-error \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/faultcite-staging/settings" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            > "$RUNNER_TEMP/staging-settings.json"
+          jq -e '.success == true' "$RUNNER_TEMP/staging-settings.json" > /dev/null
+          jq -r '.result.bindings[]? | [.name, .type] | @tsv' "$RUNNER_TEMP/staging-settings.json"
+
+      - name: Check staging Worker health
+        shell: bash
+        run: |
+          status="$(curl --silent --show-error --location \
+            --output "$RUNNER_TEMP/staging-health.json" \
+            --write-out '%{http_code}' \
+            "https://faultcite-staging.derekbearce.workers.dev/api/health")"
+          echo "staging /api/health status: $status"
+          test "$status" = "200"
+          jq -e '.status == "ok"' "$RUNNER_TEMP/staging-health.json" > /dev/null
+
       - name: Verify faultcite.com zone access
         shell: bash
         run: |
