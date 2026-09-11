@@ -15,6 +15,8 @@ Before review, give counsel immutable copies or hashes of the exact public docum
 
 Do not fill these fields by assumption.
 
+Complete the plain-language owner worksheet in `docs/OWNER_BUSINESS_FACTS.md`, then copy the approved facts into this packet for professional review.
+
 | Required fact | Owner response | Why counsel needs it |
 |---|---|---|
 | Full legal name of service operator and contracting entity | **TBD** | Identifies the responsible and contracting party |
