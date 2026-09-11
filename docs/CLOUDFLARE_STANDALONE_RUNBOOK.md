@@ -23,7 +23,7 @@ Staging resources already created by the owner:
 
 ## Before any staging deployment
 
-1. Replace only `REPLACE_WITH_STAGING_D1_DATABASE_ID` in `cloudflare/wrangler.staging.toml` with the D1 ID shown in Cloudflare.
+1. Verify that the concrete D1 ID in `cloudflare/wrangler.staging.toml` matches `faultcite-staging-db` in the intended Cloudflare account. Replace it only if the account shows a different ID; never guess or copy an ID from another environment.
 2. Add these Worker secrets directly in Cloudflare; never paste their values into chat or commit them:
    - `CLERK_SECRET_KEY`
    - `RESEND_API_KEY`
