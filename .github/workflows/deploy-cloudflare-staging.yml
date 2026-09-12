@@ -27,7 +27,8 @@ jobs:
       (github.event_name == 'push' &&
        (github.event.head_commit.message == 'Deploy FaultCite 0.3.9 to Cloudflare staging' ||
         github.event.head_commit.message == 'Repair and deploy FaultCite 0.3.9 to Cloudflare staging' ||
-        github.event.head_commit.message == 'Connect FaultCite staging custom domain')) ||
+        github.event.head_commit.message == 'Connect FaultCite staging custom domain' ||
+        github.event.head_commit.message == 'Diagnose FaultCite staging hostname mapping')) ||
       (github.event_name == 'workflow_dispatch' &&
        inputs.confirmation == 'DEPLOY-staging')
     runs-on: ubuntu-latest
@@ -52,7 +53,7 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing Cloudflare API token"; exit 1; }
           test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing Cloudflare account ID"; exit 1; }
 
-      - name: Confirm the staging hostname is vacant in the approved zone
+      - name: Diagnose the existing staging hostname without changes
         shell: bash
         run: |
           set -euo pipefail
@@ -68,10 +69,24 @@ jobs:
             --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
             --data-urlencode "name=staging.faultcite.com" \
             > "$RUNNER_TEMP/staging-dns.json"
-          jq -e '.success == true and (.result | length == 0)' "$RUNNER_TEMP/staging-dns.json" > /dev/null || {
-            echo "staging.faultcite.com already has a DNS record; refusing to replace it"
-            exit 1
-          }
+          jq -e '.success == true' "$RUNNER_TEMP/staging-dns.json" > /dev/null
+          jq -c '{dns_records: [.result[] | {type, proxied}]}' "$RUNNER_TEMP/staging-dns.json"
+
+          curl --fail-with-body --silent --show-error --get \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --data-urlencode "hostname=staging.faultcite.com" \
+            > "$RUNNER_TEMP/staging-domains.json"
+          jq -e '.success == true' "$RUNNER_TEMP/staging-domains.json" > /dev/null
+          jq -c --arg zone "$zone_id" '
+            {worker_domains: [.result[] | {
+              matches_staging_worker: (.service == "faultcite-staging"),
+              matches_approved_zone: (.zone_id == $zone),
+              hostname
+            }]}
+          ' "$RUNNER_TEMP/staging-domains.json"
+          echo "Read-only diagnostic complete; stopping before build or deployment."
+          exit 1
 
       - name: Install locked dependencies
         run: npm ci --ignore-scripts
