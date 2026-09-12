@@ -1,0 +1,155 @@
+name: Deploy Cloudflare staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY-staging
+        required: true
+        type: string
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/deploy-cloudflare-staging.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: faultcite-cloudflare-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Migrate, deploy, and verify FaultCite staging
+    if: >-
+      (github.event_name == 'push' &&
+       github.event.head_commit.message == 'Deploy FaultCite 0.3.9 to Cloudflare staging') ||
+      (github.event_name == 'workflow_dispatch' &&
+       inputs.confirmation == 'DEPLOY-staging')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
+      STAGING_URL: https://faultcite-staging.derekbearce.workers.dev
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22.13.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+
+      - name: Require encrypted credentials
+        shell: bash
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing Cloudflare API token"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing Cloudflare account ID"; exit 1; }
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Verify staging resources and prepare corrected variables
+        shell: bash
+        run: |
+          set -euo pipefail
+          settings="$RUNNER_TEMP/staging-settings.json"
+          curl --fail-with-body --silent --show-error \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/faultcite-staging/settings" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            > "$settings"
+          jq -e '.success == true' "$settings" > /dev/null
+          jq -e '
+            (.result.bindings | any(.name == "CLERK_SECRET_KEY" and .type == "secret_text")) and
+            (.result.bindings | any(.name == "RESEND_API_KEY" and .type == "secret_text")) and
+            (.result.bindings | any(.name == "DB" and .type == "d1")) and
+            (.result.bindings | any(.name == "BUCKET" and .type == "r2_bucket"))
+          ' "$settings" > /dev/null
+
+          publishable_key="$(jq -er '
+            (.result.bindings | map(select(.name == "CLERK_PUBLISHABLE_KEY"))[0].text) //
+            (.result.bindings | map(select(.name == "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"))[0].text)
+          ' "$settings")"
+          email_from="$(jq -er '
+            (.result.bindings | map(select(.name == "FAULTCITE_EMAIL_FROM"))[0].text) //
+            (.result.bindings | map(select(.name == "FAULTCITE_FROM_EMAIL"))[0].text)
+          ' "$settings")"
+          echo "::add-mask::$publishable_key"
+          echo "::add-mask::$email_from"
+
+          export STAGING_CLERK_PUBLISHABLE_KEY="$publishable_key"
+          export STAGING_EMAIL_FROM="$email_from"
+          node --input-type=module <<'NODE'
+          import { appendFileSync } from "node:fs";
+          const quote = (value) => JSON.stringify(value);
+          appendFileSync(
+            "cloudflare/wrangler.staging.toml",
+            [
+              "",
+              `CLERK_PUBLISHABLE_KEY = ${quote(process.env.STAGING_CLERK_PUBLISHABLE_KEY)}`,
+              `FAULTCITE_EMAIL_FROM = ${quote(process.env.STAGING_EMAIL_FROM)}`,
+              "",
+            ].join("\n"),
+          );
+          NODE
+
+          grep -q 'FAULTCITE_PAID_BILLING_ENABLED = "false"' cloudflare/wrangler.staging.toml
+          grep -q 'database_id = "0a9b513b-1067-4939-81b4-4fe9c01b8dd9"' cloudflare/wrangler.staging.toml
+          grep -q 'bucket_name = "faultcite-staging-files"' cloudflare/wrangler.staging.toml
+          ! grep -Eq '(^|[[:space:]])routes?[[:space:]]*=' cloudflare/wrangler.staging.toml
+
+      - name: Validate build and deployment package
+        shell: bash
+        run: |
+          npm run cf:check
+          npm run build
+          npm run validate:artifact
+          npx --no-install wrangler deploy \
+            --config cloudflare/wrangler.staging.toml \
+            --dry-run
+
+      - name: Apply pending staging D1 migrations
+        env:
+          FAULTCITE_CONFIRM: MIGRATE-staging
+        run: npm run cf:migrate:staging
+
+      - name: Deploy FaultCite 0.3.9 to staging
+        env:
+          FAULTCITE_CONFIRM: DEPLOY-staging
+        run: npm run cf:deploy:staging
+
+      - name: Verify corrected bindings and disabled billing
+        shell: bash
+        run: |
+          settings="$RUNNER_TEMP/deployed-settings.json"
+          curl --fail-with-body --silent --show-error \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/faultcite-staging/settings" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            > "$settings"
+          jq -e '
+            .success == true and
+            (.result.bindings | any(.name == "CLERK_SECRET_KEY" and .type == "secret_text")) and
+            (.result.bindings | any(.name == "RESEND_API_KEY" and .type == "secret_text")) and
+            (.result.bindings | any(.name == "CLERK_PUBLISHABLE_KEY" and .type == "plain_text")) and
+            (.result.bindings | any(.name == "FAULTCITE_EMAIL_FROM" and .type == "plain_text")) and
+            (.result.bindings | any(
+              .name == "FAULTCITE_PAID_BILLING_ENABLED" and
+              .type == "plain_text" and
+              .text == "false"
+            )) and
+            (.result.bindings | any(.name == "DB" and .type == "d1")) and
+            (.result.bindings | any(.name == "BUCKET" and .type == "r2_bucket"))
+          ' "$settings" > /dev/null
+          echo "Corrected staging bindings verified; paid billing remains disabled."
+
+      - name: Run staging smoke checks
+        env:
+          FAULTCITE_SMOKE_URL: ${{ env.STAGING_URL }}
+        run: npm run cf:smoke
+
+      - name: Record deployment status
+        run: npx --no-install wrangler deployments status --config cloudflare/wrangler.staging.toml
