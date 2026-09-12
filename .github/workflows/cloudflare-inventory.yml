@@ -68,6 +68,24 @@ jobs:
           jq -e '.success == true' "$RUNNER_TEMP/staging-settings.json" > /dev/null
           jq -r '.result.bindings[]? | [.name, .type] | @tsv' "$RUNNER_TEMP/staging-settings.json"
 
+      - name: Export staging schema without customer data
+        shell: bash
+        run: |
+          npx --no-install wrangler d1 export DB --remote \
+            --config cloudflare/wrangler.staging.toml \
+            --no-data \
+            --output "$RUNNER_TEMP/faultcite-staging-schema.sql"
+          test -s "$RUNNER_TEMP/faultcite-staging-schema.sql"
+          sha256sum "$RUNNER_TEMP/faultcite-staging-schema.sql"
+
+      - name: Upload staging schema diagnostic
+        uses: actions/upload-artifact@v4
+        with:
+          name: faultcite-staging-schema
+          path: ${{ runner.temp }}/faultcite-staging-schema.sql
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Check staging Worker health
         shell: bash
         run: |
