@@ -118,6 +118,7 @@ jobs:
           FAULTCITE_CONFIRM: MIGRATE-staging
         shell: bash
         run: |
+          # Record a recovery bookmark before the guarded journal repair.
           npx --no-install wrangler d1 time-travel info DB \
             --config cloudflare/wrangler.staging.toml \
             --json
