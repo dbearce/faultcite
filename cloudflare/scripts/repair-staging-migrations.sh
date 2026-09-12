@@ -23,8 +23,17 @@ wrangler d1 execute DB --remote --config "$config" --json --command "
         '0001_parallel_captain_america.sql',
         '0002_same_kabuki.sql',
         '0003_curved_kinsey_walden.sql',
-        '0004_faultcite_pilot_invariants.sql'
-      )) AS expected_journal_rows,
+        '0004_faultcite_pilot_invariants.sql',
+        '0005_lonely_cassandra_nova.sql',
+        '0006_tan_wolverine.sql',
+        '0007_silky_donald_blake.sql'
+      )) AS canonical_journal_rows,
+    (SELECT COUNT(*) FROM d1_migrations
+      WHERE name IN (
+        '0005_invitation_expiry.sql',
+        '0006_clerk_identity_binding.sql',
+        '0007_case_machine_tenant_guard.sql'
+      )) AS legacy_journal_rows,
     (SELECT COUNT(*) FROM sqlite_schema
       WHERE type = 'table' AND name IN ('platform_admins', 'user_settings')) AS repaired_tables,
     (SELECT COUNT(*) FROM pragma_table_info('invitations')
@@ -42,8 +51,9 @@ wrangler d1 execute DB --remote --config "$config" --json --command "
 
 jq -e '
   .[0].success == true and
-  .[0].results[0].journal_rows == 5 and
-  .[0].results[0].expected_journal_rows == 5 and
+  .[0].results[0].journal_rows == 11 and
+  .[0].results[0].canonical_journal_rows == 8 and
+  .[0].results[0].legacy_journal_rows == 3 and
   .[0].results[0].repaired_tables == 2 and
   .[0].results[0].existing_expiry_column == 1 and
   .[0].results[0].missing_invitation_columns == 0 and
@@ -69,7 +79,7 @@ wrangler d1 execute DB --remote --config "$config" --json --command "
 
 jq -e '
   .[0].success == true and
-  .[0].results[0].journal_rows == 9 and
+  .[0].results[0].journal_rows == 12 and
   .[0].results[0].invitation_columns == 4 and
   .[0].results[0].removed_0010_triggers == 0
 ' "$verified_file" > /dev/null ||
