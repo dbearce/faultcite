@@ -68,6 +68,39 @@ jobs:
           jq -e '.success == true' "$RUNNER_TEMP/staging-settings.json" > /dev/null
           jq -r '.result.bindings[]? | [.name, .type] | @tsv' "$RUNNER_TEMP/staging-settings.json"
 
+      - name: Inspect staging migration journal counts
+        shell: bash
+        run: |
+          npx --no-install wrangler d1 execute DB --remote \
+            --config cloudflare/wrangler.staging.toml \
+            --json \
+            --command "
+              SELECT
+                (SELECT COUNT(*) FROM d1_migrations) AS journal_rows,
+                (SELECT COUNT(*) FROM d1_migrations
+                  WHERE name IN (
+                    '0000_hard_lethal_legion.sql',
+                    '0001_parallel_captain_america.sql',
+                    '0002_same_kabuki.sql',
+                    '0003_curved_kinsey_walden.sql',
+                    '0004_faultcite_pilot_invariants.sql'
+                  )) AS expected_journal_rows,
+                (SELECT COUNT(*) FROM sqlite_schema
+                  WHERE type = 'table' AND name IN ('platform_admins', 'user_settings')) AS repaired_tables,
+                (SELECT COUNT(*) FROM pragma_table_info('invitations')
+                  WHERE name = 'expires_at') AS existing_expiry_column,
+                (SELECT COUNT(*) FROM pragma_table_info('invitations')
+                  WHERE name IN ('token_hash', 'revoked_at', 'delivered_at')) AS missing_invitation_columns,
+                (SELECT COUNT(*) FROM sqlite_schema
+                  WHERE type = 'index' AND name = 'memberships_one_active_uq') AS transient_index,
+                (SELECT COUNT(*) FROM sqlite_schema
+                  WHERE type = 'trigger' AND name IN (
+                    'cases_machine_tenant_insert_guard',
+                    'cases_machine_tenant_update_guard'
+                  )) AS early_0010_triggers;
+              SELECT name FROM d1_migrations ORDER BY id;
+            " | jq '[.[] | .results]'
+
       - name: Export staging schema without customer data
         shell: bash
         run: |
