@@ -25,7 +25,8 @@ jobs:
     name: Migrate, deploy, and verify FaultCite staging
     if: >-
       (github.event_name == 'push' &&
-       github.event.head_commit.message == 'Deploy FaultCite 0.3.9 to Cloudflare staging') ||
+       (github.event.head_commit.message == 'Deploy FaultCite 0.3.9 to Cloudflare staging' ||
+        github.event.head_commit.message == 'Repair and deploy FaultCite 0.3.9 to Cloudflare staging')) ||
       (github.event_name == 'workflow_dispatch' &&
        inputs.confirmation == 'DEPLOY-staging')
     runs-on: ubuntu-latest
@@ -115,7 +116,13 @@ jobs:
       - name: Apply pending staging D1 migrations
         env:
           FAULTCITE_CONFIRM: MIGRATE-staging
-        run: npm run cf:migrate:staging
+        shell: bash
+        run: |
+          npx --no-install wrangler d1 time-travel info DB \
+            --config cloudflare/wrangler.staging.toml \
+            --json
+          bash cloudflare/scripts/repair-staging-migrations.sh
+          npm run cf:migrate:staging
 
       - name: Deploy FaultCite 0.3.9 to staging
         env:
