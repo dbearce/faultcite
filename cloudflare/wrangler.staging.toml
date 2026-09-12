@@ -2,6 +2,12 @@ name = "faultcite-staging"
 main = "../dist/server/index.js"
 compatibility_date = "2026-08-01"
 compatibility_flags = ["nodejs_compat"]
+
+# Only this staging hostname is approved; production remains on its existing host.
+[[routes]]
+pattern = "staging.faultcite.com"
+custom_domain = true
+
 [assets]
 directory = "../dist/client"
 binding = "ASSETS"
@@ -20,7 +26,7 @@ bucket_name = "faultcite-staging-files"
 FAULTCITE_DEPLOYMENT_TARGET = "standalone"
 FAULTCITE_AUTH_PROVIDER = "clerk"
 FAULTCITE_RUNTIME = "standalone"
-FAULTCITE_APP_ORIGIN = "https://faultcite-staging.derekbearce.workers.dev"
-CLERK_AUTHORIZED_PARTIES = "https://faultcite-staging.derekbearce.workers.dev"
+FAULTCITE_APP_ORIGIN = "https://staging.faultcite.com"
+CLERK_AUTHORIZED_PARTIES = "https://staging.faultcite.com"
 FAULTCITE_CONTACT_EMAIL = "support@faultcite.com"
 FAULTCITE_PAID_BILLING_ENABLED = "false"

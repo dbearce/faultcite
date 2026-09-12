@@ -46,7 +46,7 @@ test("Clerk identity bindings are unique and immutable in the database", async (
   );
 });
 
-test("standalone configuration is route-free, fail-closed, and uses fixed Clerk parties", async () => {
+test("standalone configuration limits the Custom Domain to staging, fails closed, and fixes Clerk parties", async () => {
   const [auth, staging, production, check] = await Promise.all([
     read("../app/auth.ts"),
     read("../cloudflare/wrangler.staging.toml"),
@@ -56,16 +56,17 @@ test("standalone configuration is route-free, fail-closed, and uses fixed Clerk 
   for (const config of [staging, production]) {
     assert.match(config, /FAULTCITE_RUNTIME = "standalone"/);
     assert.match(config, /FAULTCITE_AUTH_PROVIDER = "clerk"/);
-    assert.doesNotMatch(config, /(^|\n)\s*routes?\s*=/);
     assert.doesNotMatch(config, /CLERK_SECRET_KEY\s*=/);
     assert.doesNotMatch(config, /RESEND_API_KEY\s*=/);
   }
-  assert.match(staging, /CLERK_AUTHORIZED_PARTIES = "https:\/\/faultcite-staging\.derekbearce\.workers\.dev"/);
+  assert.match(staging, /CLERK_AUTHORIZED_PARTIES = "https:\/\/staging\.faultcite\.com"/);
+  assert.match(staging, /\[\[routes\]\]\npattern = "staging\.faultcite\.com"\ncustom_domain = true/);
+  assert.doesNotMatch(production, /(^|\n)\s*routes?\s*=|\[\[routes\]\]/);
   assert.match(auth, /if \(!secretKey \|\| !publishableKey\) return null/);
   assert.match(auth, /clerk\.authenticateRequest\(request/);
   assert.doesNotMatch(auth, /x-forwarded-host/);
   assert.doesNotMatch(auth, /requestHeaders\.get\("host"\)/);
-  assert.match(check, /routes are forbidden|must remain route-free/);
+  assert.match(check, /assert_config_ready/);
 });
 
 test("staging acceptance and artifact packaging gates are executable", async () => {

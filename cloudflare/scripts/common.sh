@@ -22,7 +22,15 @@ assert_config_ready() {
   grep -q 'FAULTCITE_DEPLOYMENT_TARGET = "standalone"' "$config" || die "standalone deployment target missing"
   grep -q 'FAULTCITE_AUTH_PROVIDER = "clerk"' "$config" || die "Clerk auth provider missing"
   grep -q 'FAULTCITE_RUNTIME = "standalone"' "$config" || die "standalone runtime switch missing"
-  ! grep -Eq '(^|[[:space:]])routes?[[:space:]]*=' "$config" || die "routes are forbidden before approved cutover"
+  if [[ "$config" == "cloudflare/wrangler.staging.toml" ]]; then
+    [[ "$(grep -Ec '^\[\[routes\]\]$' "$config")" == 1 ]] || die "staging must have exactly one Custom Domain"
+    grep -q '^pattern = "staging.faultcite.com"$' "$config" || die "staging Custom Domain is not approved"
+    grep -q '^custom_domain = true$' "$config" || die "staging must use a Custom Domain"
+    ! grep -Eq '^[[:space:]]*route[[:space:]]*=' "$config" || die "legacy routes are forbidden"
+  else
+    ! grep -Eq '(^|[[:space:]])routes?[[:space:]]*=' "$config" || die "production routes are forbidden before approved cutover"
+    ! grep -q '^\[\[routes\]\]$' "$config" || die "production Custom Domains are forbidden before approved cutover"
+  fi
 }
 
 confirm_exact() {

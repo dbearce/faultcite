@@ -26,7 +26,8 @@ jobs:
     if: >-
       (github.event_name == 'push' &&
        (github.event.head_commit.message == 'Deploy FaultCite 0.3.9 to Cloudflare staging' ||
-        github.event.head_commit.message == 'Repair and deploy FaultCite 0.3.9 to Cloudflare staging')) ||
+        github.event.head_commit.message == 'Repair and deploy FaultCite 0.3.9 to Cloudflare staging' ||
+        github.event.head_commit.message == 'Connect FaultCite staging custom domain')) ||
       (github.event_name == 'workflow_dispatch' &&
        inputs.confirmation == 'DEPLOY-staging')
     runs-on: ubuntu-latest
@@ -34,7 +35,7 @@ jobs:
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
-      STAGING_URL: https://faultcite-staging.derekbearce.workers.dev
+      STAGING_URL: https://staging.faultcite.com
 
     steps:
       - name: Check out repository
@@ -50,6 +51,27 @@ jobs:
         run: |
           test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing Cloudflare API token"; exit 1; }
           test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing Cloudflare account ID"; exit 1; }
+
+      - name: Confirm the staging hostname is vacant in the approved zone
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error --get \
+            "https://api.cloudflare.com/client/v4/zones" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --data-urlencode "name=faultcite.com" \
+            --data-urlencode "account.id=$CLOUDFLARE_ACCOUNT_ID" \
+            > "$RUNNER_TEMP/zone.json"
+          zone_id="$(jq -er '.result | if length == 1 and .[0].status == "active" then .[0].id else empty end' "$RUNNER_TEMP/zone.json")"
+          curl --fail-with-body --silent --show-error --get \
+            "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --data-urlencode "name=staging.faultcite.com" \
+            > "$RUNNER_TEMP/staging-dns.json"
+          jq -e '.success == true and (.result | length == 0)' "$RUNNER_TEMP/staging-dns.json" > /dev/null || {
+            echo "staging.faultcite.com already has a DNS record; refusing to replace it"
+            exit 1
+          }
 
       - name: Install locked dependencies
         run: npm ci --ignore-scripts
@@ -101,7 +123,10 @@ jobs:
           grep -q 'FAULTCITE_PAID_BILLING_ENABLED = "false"' cloudflare/wrangler.staging.toml
           grep -q 'database_id = "0a9b513b-1067-4939-81b4-4fe9c01b8dd9"' cloudflare/wrangler.staging.toml
           grep -q 'bucket_name = "faultcite-staging-files"' cloudflare/wrangler.staging.toml
-          ! grep -Eq '(^|[[:space:]])routes?[[:space:]]*=' cloudflare/wrangler.staging.toml
+          grep -q '^pattern = "staging.faultcite.com"$' cloudflare/wrangler.staging.toml
+          grep -q '^custom_domain = true$' cloudflare/wrangler.staging.toml
+          grep -q '^FAULTCITE_APP_ORIGIN = "https://staging.faultcite.com"$' cloudflare/wrangler.staging.toml
+          grep -q '^CLERK_AUTHORIZED_PARTIES = "https://staging.faultcite.com"$' cloudflare/wrangler.staging.toml
 
       - name: Validate build and deployment package
         shell: bash
@@ -114,6 +139,7 @@ jobs:
             --dry-run
 
       - name: Apply pending staging D1 migrations
+        if: github.event_name != 'push' || github.event.head_commit.message != 'Connect FaultCite staging custom domain'
         env:
           FAULTCITE_CONFIRM: MIGRATE-staging
         shell: bash
@@ -144,6 +170,8 @@ jobs:
             (.result.bindings | any(.name == "RESEND_API_KEY" and .type == "secret_text")) and
             (.result.bindings | any(.name == "CLERK_PUBLISHABLE_KEY" and .type == "plain_text")) and
             (.result.bindings | any(.name == "FAULTCITE_EMAIL_FROM" and .type == "plain_text")) and
+            (.result.bindings | any(.name == "FAULTCITE_APP_ORIGIN" and .text == "https://staging.faultcite.com")) and
+            (.result.bindings | any(.name == "CLERK_AUTHORIZED_PARTIES" and .text == "https://staging.faultcite.com")) and
             (.result.bindings | any(
               .name == "FAULTCITE_PAID_BILLING_ENABLED" and
               .type == "plain_text" and
@@ -158,6 +186,20 @@ jobs:
         env:
           FAULTCITE_SMOKE_URL: ${{ env.STAGING_URL }}
         run: npm run cf:smoke
+
+      - name: Verify staging sign-in origin is accepted by Clerk
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --max-time 20 \
+            "$STAGING_URL/sign-in" > "$RUNNER_TEMP/staging-sign-in.html"
+          grep -q 'Sign in to FaultCite' "$RUNNER_TEMP/staging-sign-in.html"
+          curl --silent --show-error --max-time 20 \
+            --header "Origin: $STAGING_URL" \
+            'https://clerk.faultcite.com/v1/client?_clerk_js_version=5.127.2' \
+            > "$RUNNER_TEMP/clerk-origin.json"
+          jq -e 'has("client") and ((.errors // []) | length == 0)' "$RUNNER_TEMP/clerk-origin.json" > /dev/null
+          echo "Clerk accepted the staging origin; interactive sign-in still needs browser verification."
 
       - name: Record deployment status
         run: npx --no-install wrangler deployments status --config cloudflare/wrangler.staging.toml
