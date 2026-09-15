@@ -90,6 +90,22 @@ jobs:
             exit 1
           }
           echo "Existing Custom Domain belongs to faultcite-staging in the approved zone."
+
+          curl --fail-with-body --silent --show-error \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/faultcite-staging/subdomain" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            > "$RUNNER_TEMP/staging-subdomain-before-response.json"
+          jq -e '
+            .success == true and
+            .result.enabled == false and
+            .result.previews_enabled == false
+          ' "$RUNNER_TEMP/staging-subdomain-before-response.json" > /dev/null || {
+            echo "Staging workers.dev or preview URL exposure differs from the reviewed disabled state"
+            exit 1
+          }
+          jq -S '.result | {enabled, previews_enabled}' \
+            "$RUNNER_TEMP/staging-subdomain-before-response.json" \
+            > "$RUNNER_TEMP/staging-subdomain-before.json"
           echo "STAGING_ZONE_ID=$zone_id" >> "$GITHUB_ENV"
 
       - name: Install locked dependencies
@@ -156,9 +172,8 @@ jobs:
           npm run cf:check
           npm run build
           npm run validate:artifact
-          npx --no-install wrangler deploy \
-            --config cloudflare/wrangler.staging.toml \
-            --dry-run --keep-vars --strict
+          FAULTCITE_CONFIRM=DEPLOY-staging \
+            bash cloudflare/scripts/deploy.sh staging --dry-run
 
       - name: Apply pending staging D1 migrations
         env:
@@ -182,6 +197,7 @@ jobs:
         run: npm run cf:deploy:staging
 
       - name: Verify staging DNS was not changed
+        if: ${{ always() && env.STAGING_ZONE_ID != '' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
@@ -200,7 +216,36 @@ jobs:
             echo "Staging DNS differs from its pre-deploy state; investigate before further deployment"
             exit 1
           }
+          curl --fail-with-body --silent --show-error --get \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --data-urlencode "hostname=staging.faultcite.com" \
+            > "$RUNNER_TEMP/staging-domains-after.json"
+          jq -e --arg zone "$STAGING_ZONE_ID" '
+            .success == true and
+            (.result | length == 1) and
+            (.result[0].hostname == "staging.faultcite.com") and
+            (.result[0].service == "faultcite-staging") and
+            (.result[0].zone_id == $zone)
+          ' "$RUNNER_TEMP/staging-domains-after.json" > /dev/null || {
+            echo "Staging Custom Domain association changed during deployment"
+            exit 1
+          }
+          curl --fail-with-body --silent --show-error \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/faultcite-staging/subdomain" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            > "$RUNNER_TEMP/staging-subdomain-after-response.json"
+          jq -e '.success == true' "$RUNNER_TEMP/staging-subdomain-after-response.json" > /dev/null
+          jq -S '.result | {enabled, previews_enabled}' \
+            "$RUNNER_TEMP/staging-subdomain-after-response.json" \
+            > "$RUNNER_TEMP/staging-subdomain-after.json"
+          cmp "$RUNNER_TEMP/staging-subdomain-before.json" "$RUNNER_TEMP/staging-subdomain-after.json" || {
+            echo "Staging workers.dev or preview URL exposure changed during deployment"
+            exit 1
+          }
           echo "Staging DNS record is unchanged."
+          echo "Staging Custom Domain still belongs to faultcite-staging."
+          echo "Staging workers.dev and preview URLs remain disabled."
 
       - name: Verify corrected bindings and disabled billing
         env:

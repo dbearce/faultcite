@@ -30,6 +30,8 @@ grep -q '^bucket_name = "faultcite-staging-files"$' cloudflare/wrangler.staging.
 grep -q '^FAULTCITE_APP_ORIGIN = "https://staging.faultcite.com"$' cloudflare/wrangler.staging.toml || die "staging app origin changed"
 grep -q '^CLERK_AUTHORIZED_PARTIES = "https://staging.faultcite.com"$' cloudflare/wrangler.staging.toml || die "staging Clerk authorized party changed"
 grep -q '^FAULTCITE_PAID_BILLING_ENABLED = "false"$' cloudflare/wrangler.staging.toml || die "staging billing must remain disabled"
+grep -q '^workers_dev = false$' cloudflare/wrangler.staging.toml || die "staging workers.dev must remain disabled"
+grep -q '^preview_urls = false$' cloudflare/wrangler.staging.toml || die "staging preview URLs must remain disabled"
 
 grep -q '^name = "faultcite-production"$' cloudflare/wrangler.production.toml || die "production Worker name changed"
 grep -q '^database_name = "faultcite-production-db"$' cloudflare/wrangler.production.toml || die "production D1 name changed"

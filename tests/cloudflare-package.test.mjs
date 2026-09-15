@@ -40,3 +40,21 @@ test("state-changing Cloudflare scripts require explicit confirmations", async (
     assert.match(await readFile(path, "utf8"), pattern, path);
   }
 });
+
+test("staging deploy uploads through a guarded route-free temporary config", async () => {
+  const source = await readFile("cloudflare/scripts/deploy.sh", "utf8");
+  assert.match(source, /if \[\[ "\$environment" == "staging" \]\]; then/);
+  assert.match(source, /mktemp --suffix=\.toml cloudflare\/\.wrangler\.staging\.deploy\.XXXXXX/);
+  assert.match(source, /\^\\\[\\\[routes\\\]\\\]\$/);
+  assert.match(source, /pattern\|custom_domain/);
+  assert.match(source, /database_id = "0a9b513b-1067-4939-81b4-4fe9c01b8dd9"/);
+  assert.match(source, /bucket_name = "faultcite-staging-files"/);
+  assert.match(source, /FAULTCITE_PAID_BILLING_ENABLED = "false"/);
+  assert.match(source, /FAULTCITE_APP_ORIGIN = "https:\/\/staging\.faultcite\.com"/);
+  assert.match(source, /CLERK_AUTHORIZED_PARTIES = "https:\/\/staging\.faultcite\.com"/);
+  assert.match(source, /workers_dev = false/);
+  assert.match(source, /preview_urls = false/);
+  assert.match(source, /wrangler deploy --config "\$deploy_config" --keep-vars --strict/);
+  assert.match(source, /optional deploy mode must be --dry-run/);
+  assert.equal((source.match(/deploy_config="\$config"/g) || []).length, 1);
+});

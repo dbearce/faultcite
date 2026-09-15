@@ -29,10 +29,24 @@ latest_migration="${SITES_PROJECT_ROOT}/dist/.openai/drizzle/0028_manual_source_
   exit 66
 }
 
-if rg -n -i 'cnc[ -]?medic|/workspace/|\bCM-[0-9]' "${SITES_PROJECT_ROOT}/dist" >/dev/null; then
-  echo "Packaged release contains a retired brand, case prefix, or absolute workspace path" >&2
-  exit 65
-fi
+node --input-type=module - "${SITES_PROJECT_ROOT}/dist" <<'NODE'
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+
+const root = process.argv[2];
+const forbidden = /cnc[ -]?medic|\/workspace\/|\bCM-[0-9]/i;
+async function scan(directory) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const path = join(directory, entry.name);
+    if (entry.isDirectory()) {
+      await scan(path);
+    } else if (forbidden.test(await readFile(path, "utf8"))) {
+      throw new Error(`Packaged release contains retired content: ${path}`);
+    }
+  }
+}
+await scan(root);
+NODE
 
 node --input-type=module - "${worker}" "${hosting}" <<'NODE'
 import { readFile } from "node:fs/promises";
