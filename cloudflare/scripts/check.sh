@@ -16,8 +16,27 @@ for config in cloudflare/wrangler.staging.toml cloudflare/wrangler.production.to
   grep -q 'binding = "DB"' "$config" || die "$config lacks DB binding"
   grep -q 'binding = "BUCKET"' "$config" || die "$config lacks BUCKET binding"
   grep -q 'binding = "ASSETS"' "$config" || die "$config lacks ASSETS binding"
-  ! grep -Eq 'CLERK_SECRET_KEY|RESEND_API_KEY[[:space:]]*=' "$config" || die "$config must not contain secrets"
+  grep -q 'compatibility_flags = \["nodejs_compat"\]' "$config" || die "$config lacks nodejs_compat"
+  grep -q '^\[observability\]$' "$config" || die "$config lacks observability configuration"
+  grep -q '^redact_query_string = true$' "$config" || die "$config must redact query strings from telemetry"
+  grep -q '^\[observability.logs\]$' "$config" || die "$config lacks Workers Logs configuration"
+  grep -q '^\[observability.traces\]$' "$config" || die "$config lacks Workers Traces configuration"
+  ! grep -Eq '(^|[[:space:]])(CLERK_SECRET_KEY|RESEND_API_KEY|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|OPENAI_API_KEY|CLOUDFLARE_API_TOKEN)[[:space:]]*=' "$config" || die "$config must not contain secrets"
 done
+
+grep -q '^name = "faultcite-staging"$' cloudflare/wrangler.staging.toml || die "staging Worker name changed"
+grep -q '^database_name = "faultcite-staging-db"$' cloudflare/wrangler.staging.toml || die "staging D1 name changed"
+grep -q '^bucket_name = "faultcite-staging-files"$' cloudflare/wrangler.staging.toml || die "staging R2 name changed"
+grep -q '^FAULTCITE_APP_ORIGIN = "https://staging.faultcite.com"$' cloudflare/wrangler.staging.toml || die "staging app origin changed"
+grep -q '^CLERK_AUTHORIZED_PARTIES = "https://staging.faultcite.com"$' cloudflare/wrangler.staging.toml || die "staging Clerk authorized party changed"
+grep -q '^FAULTCITE_PAID_BILLING_ENABLED = "false"$' cloudflare/wrangler.staging.toml || die "staging billing must remain disabled"
+
+grep -q '^name = "faultcite-production"$' cloudflare/wrangler.production.toml || die "production Worker name changed"
+grep -q '^database_name = "faultcite-production-db"$' cloudflare/wrangler.production.toml || die "production D1 name changed"
+grep -q '^bucket_name = "faultcite-production-files"$' cloudflare/wrangler.production.toml || die "production R2 name changed"
+grep -q '^FAULTCITE_APP_ORIGIN = "https://app.faultcite.com"$' cloudflare/wrangler.production.toml || die "production app origin changed"
+grep -q '^CLERK_AUTHORIZED_PARTIES = "https://app.faultcite.com"$' cloudflare/wrangler.production.toml || die "production Clerk authorized party changed"
+grep -q '^FAULTCITE_PAID_BILLING_ENABLED = "false"$' cloudflare/wrangler.production.toml || die "production billing must remain disabled"
 
 for script in cloudflare/scripts/*.sh; do bash -n "$script"; done
 printf 'Cloudflare package checks passed (staging-only Custom Domain; production route-free).\n'

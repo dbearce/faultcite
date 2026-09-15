@@ -7,11 +7,6 @@ on:
         description: Type DEPLOY-staging
         required: true
         type: string
-  push:
-    branches:
-      - main
-    paths:
-      - .github/workflows/deploy-cloudflare-staging.yml
 
 permissions:
   contents: read
@@ -23,19 +18,10 @@ concurrency:
 jobs:
   deploy:
     name: Migrate, deploy, and verify FaultCite staging
-    if: >-
-      (github.event_name == 'push' &&
-       (github.event.head_commit.message == 'Deploy FaultCite 0.3.9 to Cloudflare staging' ||
-        github.event.head_commit.message == 'Repair and deploy FaultCite 0.3.9 to Cloudflare staging' ||
-        github.event.head_commit.message == 'Connect FaultCite staging custom domain' ||
-        github.event.head_commit.message == 'Deploy FaultCite staging on existing domain')) ||
-      (github.event_name == 'workflow_dispatch' &&
-       inputs.confirmation == 'DEPLOY-staging')
+    if: inputs.confirmation == 'DEPLOY-staging'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
       STAGING_URL: https://staging.faultcite.com
 
     steps:
@@ -48,12 +34,18 @@ jobs:
           node-version: 22.13.0
 
       - name: Require encrypted credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
         shell: bash
         run: |
           test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing Cloudflare API token"; exit 1; }
           test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing Cloudflare account ID"; exit 1; }
 
       - name: Verify existing staging domain belongs to the approved Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
         shell: bash
         run: |
           set -euo pipefail
@@ -104,6 +96,9 @@ jobs:
         run: npm ci --ignore-scripts
 
       - name: Verify staging resources and prepare corrected variables
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
         shell: bash
         run: |
           set -euo pipefail
@@ -163,14 +158,12 @@ jobs:
           npm run validate:artifact
           npx --no-install wrangler deploy \
             --config cloudflare/wrangler.staging.toml \
-            --dry-run
+            --dry-run --keep-vars --strict
 
       - name: Apply pending staging D1 migrations
-        if: >-
-          github.event_name != 'push' ||
-          (github.event.head_commit.message != 'Connect FaultCite staging custom domain' &&
-           github.event.head_commit.message != 'Deploy FaultCite staging on existing domain')
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
           FAULTCITE_CONFIRM: MIGRATE-staging
         shell: bash
         run: |
@@ -183,10 +176,15 @@ jobs:
 
       - name: Deploy FaultCite 0.3.9 to staging
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
           FAULTCITE_CONFIRM: DEPLOY-staging
         run: npm run cf:deploy:staging
 
       - name: Verify staging DNS was not changed
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
         shell: bash
         run: |
           set -euo pipefail
@@ -205,6 +203,9 @@ jobs:
           echo "Staging DNS record is unchanged."
 
       - name: Verify corrected bindings and disabled billing
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
         shell: bash
         run: |
           settings="$RUNNER_TEMP/deployed-settings.json"
@@ -250,4 +251,7 @@ jobs:
           echo "Clerk accepted the staging origin; interactive sign-in still needs browser verification."
 
       - name: Record deployment status
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
         run: npx --no-install wrangler deployments status --config cloudflare/wrangler.staging.toml

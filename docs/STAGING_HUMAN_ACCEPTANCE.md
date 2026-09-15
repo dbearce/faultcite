@@ -13,7 +13,7 @@ Each account must belong to a different person and use a separately verified ema
 
 ## Automated role and isolation check
 
-Use four short-lived Clerk staging session tokens as local environment variables, set `FAULTCITE_ACCEPTANCE_URL` to the `workers.dev` staging URL, and run `npm run cf:acceptance`. Clear the tokens from the terminal session immediately afterward.
+Use four short-lived Clerk staging session tokens as local environment variables, set `FAULTCITE_ACCEPTANCE_URL=https://staging.faultcite.com`, and run `npm run cf:acceptance`. Clear the tokens from the terminal session immediately afterward.
 
 ## Human workflow checklist
 

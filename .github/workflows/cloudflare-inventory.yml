@@ -125,7 +125,7 @@ jobs:
           status="$(curl --silent --show-error --location \
             --output "$RUNNER_TEMP/staging-health.json" \
             --write-out '%{http_code}' \
-            "https://faultcite-staging.derekbearce.workers.dev/api/health")"
+            "https://staging.faultcite.com/api/health")"
           echo "staging /api/health status: $status"
           test "$status" = "200"
           jq -e '.status == "ok"' "$RUNNER_TEMP/staging-health.json" > /dev/null

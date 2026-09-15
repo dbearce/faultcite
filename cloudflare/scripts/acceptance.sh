@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/common.sh"
 
 base_url="${FAULTCITE_ACCEPTANCE_URL:-}"
-[[ "$base_url" == https://*.workers.dev ]] || die "set FAULTCITE_ACCEPTANCE_URL to the isolated HTTPS workers.dev staging URL"
+[[ "$base_url" == "https://staging.faultcite.com" ]] || die "set FAULTCITE_ACCEPTANCE_URL=https://staging.faultcite.com"
 need curl
 need jq
 

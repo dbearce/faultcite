@@ -32,6 +32,7 @@ const migrationNames = [
   "0025_stripe_webhook_ordering.sql",
   "0026_manual_source_revocation.sql",
   "0027_governance_acknowledgement_evidence.sql",
+  "0028_manual_source_revocation_guard.sql",
 ];
 
 async function createDb() {
@@ -200,4 +201,17 @@ test("approved manual sources are tenant-bound, page-bounded, manager-approved, 
   assert.throws(() => db.prepare("DELETE FROM manual_sources WHERE id='source-a'").run(), /approved manual sources are immutable/);
   assert.throws(() => db.prepare("INSERT INTO manual_sources (id,organization_id,manual_id,machine_id,approved_by_user_id,manufacturer,model,section_title,page_start,page_end,source_summary,safety_notes,approved_at,created_at) VALUES ('bad-pages','org-a','manual-a','machine-a','user-a','Example','Mill','Bad',0,2,'x','x',?,?)").run(now, now), /page range is invalid/);
   assert.throws(() => db.prepare("INSERT INTO manual_sources (id,organization_id,manual_id,machine_id,approved_by_user_id,manufacturer,model,section_title,page_start,page_end,source_summary,safety_notes,approved_at,created_at) VALUES ('bad-tenant','org-b','manual-a','machine-a','user-a','Example','Mill','Bad',1,2,'x','x',?,?)").run(now, now), /tenant or approval mismatch|approval requires an enabled manager/);
+});
+
+test("approved manual sources allow one-way revocation without permitting citation edits", async () => {
+  const db = await createDb();
+  const now = Date.now();
+  db.prepare("INSERT INTO manuals (id,organization_id,uploaded_by_user_id,title,manufacturer,file_name,object_key,content_type,size_bytes,status,rights_confirmed,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)").run("manual-revoke", "org-a", "user-a", "Example service manual", "Example", "manual.pdf", "org-a/manuals/manual-revoke/manual.pdf", "application/pdf", 100, "approved", 1, now, now);
+  db.prepare("INSERT INTO manual_sources (id,organization_id,manual_id,machine_id,approved_by_user_id,manufacturer,model,serial_number,alarm_code,section_title,page_start,page_end,source_summary,safety_notes,approved_at,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)").run("source-revoke", "org-a", "manual-revoke", "machine-a", "user-a", "Example", "Mill", null, "401", "Servo alarm", 42, 44, "Reviewed cause table.", "Apply the employer lockout procedure.", now, now);
+
+  db.prepare("UPDATE manual_sources SET revoked_at=? WHERE id='source-revoke'").run(now + 1);
+  assert.equal(db.prepare("SELECT revoked_at FROM manual_sources WHERE id='source-revoke'").get().revoked_at, now + 1);
+  assert.throws(() => db.prepare("UPDATE manual_sources SET revoked_at=NULL WHERE id='source-revoke'").run(), /immutable except for one-way revocation/);
+  assert.throws(() => db.prepare("UPDATE manual_sources SET revoked_at=? WHERE id='source-revoke'").run(now + 2), /immutable except for one-way revocation/);
+  assert.throws(() => db.prepare("UPDATE manual_sources SET source_summary='Changed' WHERE id='source-revoke'").run(), /immutable except for one-way revocation/);
 });

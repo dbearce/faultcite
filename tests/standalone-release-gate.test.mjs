@@ -59,6 +59,7 @@ test("standalone configuration limits the Custom Domain to staging, fails closed
     assert.doesNotMatch(config, /CLERK_SECRET_KEY\s*=/);
     assert.doesNotMatch(config, /RESEND_API_KEY\s*=/);
   }
+  assert.match(staging, /FAULTCITE_APP_ORIGIN = "https:\/\/staging\.faultcite\.com"/);
   assert.match(staging, /CLERK_AUTHORIZED_PARTIES = "https:\/\/staging\.faultcite\.com"/);
   assert.match(staging, /\[\[routes\]\]\npattern = "staging\.faultcite\.com"\ncustom_domain = true/);
   assert.doesNotMatch(production, /(^|\n)\s*routes?\s*=|\[\[routes\]\]/);
@@ -79,6 +80,7 @@ test("staging acceptance and artifact packaging gates are executable", async () 
   const pkg = JSON.parse(packageJson);
   assert.equal(pkg.scripts["cf:acceptance"], "bash cloudflare/scripts/acceptance.sh");
   assert.match(validator, /0027_governance_acknowledgement_evidence\.sql/);
+  assert.match(validator, /0028_manual_source_revocation_guard\.sql/);
   assert.match(smoke, /forged ChatGPT identity was rejected/);
   for (const role of ["OWNER", "TECHNICIAN", "MANAGER", "OUTSIDER"]) {
     assert.match(acceptance, new RegExp(`FAULTCITE_${role}_TOKEN`));

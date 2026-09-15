@@ -9,7 +9,8 @@ fi
 
 worker="${SITES_PROJECT_ROOT}/dist/server/index.js"
 hosting="${SITES_PROJECT_ROOT}/dist/.openai/hosting.json"
-latest_migration="${SITES_PROJECT_ROOT}/dist/.openai/drizzle/0027_governance_acknowledgement_evidence.sql"
+governance_migration="${SITES_PROJECT_ROOT}/dist/.openai/drizzle/0027_governance_acknowledgement_evidence.sql"
+latest_migration="${SITES_PROJECT_ROOT}/dist/.openai/drizzle/0028_manual_source_revocation_guard.sql"
 
 [[ -f "${worker}" ]] || {
   echo "Missing Sites Worker entry: dist/server/index.js" >&2
@@ -17,6 +18,10 @@ latest_migration="${SITES_PROJECT_ROOT}/dist/.openai/drizzle/0027_governance_ack
 }
 [[ -f "${hosting}" ]] || {
   echo "Missing packaged Sites manifest: dist/.openai/hosting.json" >&2
+  exit 66
+}
+[[ -f "${governance_migration}" ]] || {
+  echo "Missing packaged FaultCite governance migration" >&2
   exit 66
 }
 [[ -f "${latest_migration}" ]] || {

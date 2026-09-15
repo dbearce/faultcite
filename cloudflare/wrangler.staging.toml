@@ -3,6 +3,18 @@ main = "../dist/server/index.js"
 compatibility_date = "2026-08-01"
 compatibility_flags = ["nodejs_compat"]
 
+[observability]
+enabled = true
+redact_query_string = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1.0
+
+[observability.traces]
+enabled = true
+head_sampling_rate = 0.01
+
 # Only this staging hostname is approved; production remains on its existing host.
 [[routes]]
 pattern = "staging.faultcite.com"

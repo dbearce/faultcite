@@ -32,6 +32,10 @@ Staging resources already created by the owner:
 5. Run `npm run cf:check`. Placeholder detection is expected to block deployment until step 1 is complete.
 6. Create a protected backup before migrations or cutover.
 
+The guarded deploy script uses Wrangler's `--keep-vars` option so these dashboard-managed non-secret values are not erased by a deployment. It also uses `--strict` so an unreviewed remote Worker change blocks the deploy instead of being silently overwritten. Worker secrets are preserved by Wrangler and must remain outside source control.
+
+Workers Logs and sampled traces are enabled in both configs. Query strings are redacted because invitation, authentication, and recovery URLs may contain sensitive values. Before production cutover, confirm telemetry is arriving and that the selected retention and sampling settings satisfy the approved privacy notice and operating budget.
+
 ## Paid billing launch switch
 
 Stripe credentials alone do not enable checkout, the customer portal, or webhook processing. `FAULTCITE_PAID_BILLING_ENABLED` defaults off and must remain `false` through staging setup and production deployment. Set it to `true` only after the live product and price, signed webhook, commercial disclosures, counsel approval, and Stripe acceptance evidence have been approved. Turning the switch back to `false` fails billing closed without removing or exposing stored credentials.
@@ -68,7 +72,7 @@ Production operations use the corresponding `production` confirmation and remain
 ## Required acceptance before cutover
 
 1. Apply migrations to the isolated staging D1.
-2. Deploy only to the `workers.dev` staging address.
+2. Deploy only to the isolated `https://staging.faultcite.com` staging origin.
 3. Run smoke checks and confirm forged ChatGPT identity headers are rejected.
 4. Test owner, technician, manager, and a user from a second company.
 5. Test invitation, email-code sign-in, sign-out, recovery, uploads, and company isolation.

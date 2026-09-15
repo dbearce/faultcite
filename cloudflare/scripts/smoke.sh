@@ -3,10 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/common.sh"
 
 base_url="${FAULTCITE_SMOKE_URL:-}"
-[[ "$base_url" == https://* ]] || die "set FAULTCITE_SMOKE_URL to the HTTPS staging URL"
-case "$base_url" in
-  https://app.faultcite.com*) die "production smoke is blocked by this staging script" ;;
-esac
+[[ "$base_url" == "https://staging.faultcite.com" ]] || die "set FAULTCITE_SMOKE_URL=https://staging.faultcite.com"
 need curl
 
 curl_flags=(--fail --silent --show-error --location --max-time 20)

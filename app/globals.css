@@ -149,3 +149,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .confirm-check:has(input:focus-visible){outline:3px solid #1b668f;outline-offset:2px}
 .error:focus{outline:3px solid #a72f34;outline-offset:3px}
 @media(max-width:680px){.topbar .mobile-logo{display:none}.top-actions .search{display:grid;width:42px;height:42px}.top-actions{gap:6px}}
+
+/* Human-interface hardening: clearer disabled controls, reliable touch targets, and reduced motion. */
+button:disabled,[aria-disabled="true"]{cursor:not-allowed;opacity:.58}
+.voice{min-height:44px}
+.notification-case-link{min-height:44px!important;padding-inline:4px}
+@media(max-width:680px){.top-actions .search,.mobile-sign-out{width:44px;height:44px}.section-heading button{min-height:44px;padding-inline:8px}.modal-head>button,.search-box>button{min-width:44px;min-height:44px}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
