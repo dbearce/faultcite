@@ -11,6 +11,7 @@
 
 - GitHub branch: `staging-release-0.3.9-polish`
 - GitHub commit: `f2597051c23f017102c4d280ac8daa541457d2c5`
+- Deployed workflow commit: `d29033c8a80e9e2960c8400d8483d1a588d40ed8`
 - Base commit: `9f44a41e12876737d6d9bcac5230f89bb4dd8e2b`
 - Release version: `0.3.9`
 - Change set: manager-mode landing correction, visible urgent safety-feedback behavior, organization-scoped machine correction, accessible machine-save status, and production Worker preview/subdomain safeguards.
@@ -45,22 +46,30 @@ Do not insert passwords, session tokens, API keys, private machine data, or cust
 
 ## Deployment evidence
 
-Status: **Pending protected workflow dispatch**.
+Status: **Protected staging deployment passed**.
 
-Run `.github/workflows/deploy-cloudflare-staging.yml` from branch `staging-release-0.3.9-polish` with confirmation `DEPLOY-staging`. After it finishes, append:
+| Deployment item | Result | Evidence |
+| --- | --- | --- |
+| Protected workflow | Passed | [GitHub Actions run 35177722921](https://github.com/dbearce/faultcite/actions/runs/35177722921), run number 10 |
+| Source revision | Passed | Workflow checked out `d29033c8a80e9e2960c8400d8483d1a588d40ed8` from `staging-release-0.3.9-polish` |
+| Pre-migration recovery point | Recorded | D1 bookmark `00000033-00000000-000050e9-f9a14e1eb9ef009350e61dcae2fd086d` |
+| Migration 0028 and journal | Passed | History through 0028 and the revocation guard were verified; both guarded migration passes reported no remaining migrations |
+| Worker deployment | Passed | `faultcite-staging` version `659b4c36-b285-4dfe-8ad6-a275273ce15a`, created September 17, 2026 at 03:21:22 UTC |
+| Runtime bindings | Passed | Staging D1, R2, Clerk, Resend, origin, and authorized-party bindings verified without exposing secret values |
+| Billing | Passed | `FAULTCITE_PAID_BILLING_ENABLED` verified as `false` after deployment |
+| Network exposure | Passed | Staging DNS record remained byte-for-byte unchanged; Custom Domain remained attached to `faultcite-staging`; `workers.dev` and preview URLs remained disabled |
+| Smoke and identity checks | Passed | Staging smoke suite passed and a forged ChatGPT identity was rejected |
+| Sign-in origin | Passed with browser follow-up | The sign-in page rendered and Clerk accepted `https://staging.faultcite.com`; interactive browser sign-in remains part of human evidence reconciliation |
+| Operator and completion | Recorded | Manually dispatched by `dbearce`; job completed September 17, 2026 at approximately 03:21:29 UTC |
 
-- GitHub Actions run URL and run ID;
-- deployed Worker version/deployment ID;
-- pre-migration D1 recovery bookmark;
-- migration result and verified migration journal;
-- smoke, Clerk-origin, health, binding, billing-disabled, and DNS-unchanged results;
-- deployment operator and UTC completion time.
+Every workflow step completed successfully. No production resource, production deployment, paid-billing setting, or DNS record was changed by this run.
 
 ## Approval trail
 
 - September 17, 2026: the product owner authorized packaging the verified changes into a staging deployment and recording formal acceptance evidence.
+- September 17, 2026: `dbearce` dispatched protected staging workflow run 35177722921; all build, migration, deployment, isolation, smoke, and configuration checks passed.
 - Production cutover, production resource creation, DNS changes, and paid billing were not authorized by that approval.
 
 ## Current decision
 
-The code package is verified and ready for the protected staging deployment. The staging deployment and formal human-evidence reconciliation must both be recorded before this document can show a final staging acceptance decision.
+The code package and protected staging deployment are verified. The release remains **pending formal human-evidence reconciliation** before this document can show a final staging acceptance decision or support production cutover.
