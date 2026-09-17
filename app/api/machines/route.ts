@@ -43,7 +43,7 @@ export async function PATCH(request: Request) {
   if (activeCase) return apiError("Machine identity cannot be changed while it has an active case", 409);
   const now = new Date();
   await db.batch([
-    db.update(machines).set(next).where(eq(machines.id, id)),
+    db.update(machines).set(next).where(and(eq(machines.id, id), eq(machines.organizationId, ctx.organizationId))),
     db.update(manualSources).set({ revokedAt: now }).where(and(eq(manualSources.organizationId, ctx.organizationId), eq(manualSources.machineId, id))),
     db.insert(auditLogs).values({ id: crypto.randomUUID(), organizationId: ctx.organizationId, actorUserId: ctx.userId, action: "machine.identity_corrected", entityType: "machine", entityId: id, metadataJson: JSON.stringify({ before: { assetNumber: existing.assetNumber, manufacturer: existing.manufacturer, model: existing.model, serialNumber: existing.serialNumber, control: existing.control, location: existing.location }, after: next, manualSourceApprovalsRevoked: true }), createdAt: now }),
   ]);

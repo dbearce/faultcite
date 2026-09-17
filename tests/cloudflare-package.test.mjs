@@ -17,6 +17,8 @@ for (const [environment, path, origin] of configurations) {
     assert.match(source, /binding = "DB"/);
     assert.match(source, /binding = "BUCKET"/);
     assert.match(source, /binding = "ASSETS"/);
+    assert.match(source, /^workers_dev = false$/m);
+    assert.match(source, /^preview_urls = false$/m);
     if (environment === "staging") {
       assert.match(source, /\[\[routes\]\]\npattern = "staging\.faultcite\.com"\ncustom_domain = true/);
       assert.equal((source.match(/\[\[routes\]\]/g) || []).length, 1);

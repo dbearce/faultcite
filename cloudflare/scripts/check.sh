@@ -39,6 +39,8 @@ grep -q '^bucket_name = "faultcite-production-files"$' cloudflare/wrangler.produ
 grep -q '^FAULTCITE_APP_ORIGIN = "https://app.faultcite.com"$' cloudflare/wrangler.production.toml || die "production app origin changed"
 grep -q '^CLERK_AUTHORIZED_PARTIES = "https://app.faultcite.com"$' cloudflare/wrangler.production.toml || die "production Clerk authorized party changed"
 grep -q '^FAULTCITE_PAID_BILLING_ENABLED = "false"$' cloudflare/wrangler.production.toml || die "production billing must remain disabled"
+grep -q '^workers_dev = false$' cloudflare/wrangler.production.toml || die "production workers.dev must remain disabled"
+grep -q '^preview_urls = false$' cloudflare/wrangler.production.toml || die "production preview URLs must remain disabled"
 
 for script in cloudflare/scripts/*.sh; do bash -n "$script"; done
 printf 'Cloudflare package checks passed (staging-only Custom Domain; production route-free).\n'
