@@ -42,7 +42,24 @@ test("manual approval blocks incomplete or expired governance", async () => {
   assert.match(route, /!manual\.rightsConfirmed/);
   assert.match(route, /!manual\.pageCount/);
   assert.match(route, /!manual\.documentOwnerUserId/);
-  assert.match(route, /manual\.revalidationDueAt\.valueOf\(\) <= Date\.now\(\)/);
+  assert.match(route, /!revalidationDueAt \|\| revalidationDueAt\.valueOf\(\) <= now\.valueOf\(\)/);
+});
+
+test("an expired manual can be revalidated with a new future date without restoring exact-page approvals", async () => {
+  const [route, sourcesRoute, consoleSource] = await Promise.all([
+    read("../app/api/manuals/[id]/route.ts"),
+    read("../app/api/manuals/[id]/sources/route.ts"),
+    read("../app/technician-console.tsx"),
+  ]);
+  const replacementDate = route.indexOf("if (body.revalidationDueAt !== undefined)");
+  const approvalChecks = route.indexOf('if (status === "approved")');
+  assert.ok(replacementDate > -1 && replacementDate < approvalChecks, "the replacement date must be resolved before approval checks");
+  assert.match(route, /candidate\.valueOf\(\) <= now\.valueOf\(\)/);
+  assert.match(route, /manual\.status === "approved" && \(!manual\.revalidationDueAt \|\| manual\.revalidationDueAt\.valueOf\(\) <= now\.valueOf\(\)\)/);
+  assert.match(route, /db\.update\(manualSources\)\.set\(\{ revokedAt: now \}\)/);
+  assert.match(route, /sourceApprovalsRevoked: invalidatesSources/);
+  assert.match(sourcesRoute, /isNull\(manualSources\.revokedAt\)/);
+  assert.match(consoleSource, /onSourcesRevoked\(manual\.id\)/);
 });
 
 test("closeout uses the company SLA and overdue manager alerts are deduplicated", async () => {

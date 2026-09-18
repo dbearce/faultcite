@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { getDb } from "../../../../../db";
 import { auditLogs, machines, manuals, manualSources } from "../../../../../db/schema";
 import { apiError, cleanText, isErrorResponse, requireApiContext } from "../../../../../lib/backend";
@@ -56,7 +56,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     const duplicate = await db.select({ id: manualSources.id }).from(manualSources).where(and(
       eq(manualSources.organizationId, ctx.organizationId), eq(manualSources.manualId, manualId),
       eq(manualSources.machineId, machineId), eq(manualSources.sectionTitle, sectionTitle),
-      eq(manualSources.pageStart, pageStart), eq(manualSources.pageEnd, pageEnd),
+      eq(manualSources.pageStart, pageStart), eq(manualSources.pageEnd, pageEnd), isNull(manualSources.revokedAt),
     )).limit(1);
     if (duplicate.length) return apiError("These exact pages are already approved for this machine", 409);
 

@@ -20,26 +20,35 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   catch { return apiError("Manual review status is required"); }
   if (!["approved", "rejected", "pending_review"].includes(status)) return apiError("Invalid manual review status");
   const db = await getDb(); const [manual] = await db.select().from(manuals).where(and(eq(manuals.id, id), eq(manuals.organizationId, ctx.organizationId))).limit(1); if (!manual) return apiError("Manual not found", 404);
+  const now = new Date();
+  let revalidationDueAt = manual.revalidationDueAt;
+  if (body.revalidationDueAt !== undefined) {
+    const candidate = new Date(String(body.revalidationDueAt));
+    if (!Number.isFinite(candidate.valueOf()) || candidate.valueOf() <= now.valueOf()) return apiError("Choose a future revalidation date");
+    revalidationDueAt = candidate;
+  }
   if (status === "approved") {
     if (!manual.rightsConfirmed) return apiError("Confirm your company has the right to use this manual before approval", 409);
     if (!manual.pageCount || manual.pageCount < 1) return apiError("The PDF page count must be verified before approval", 409);
     if (!manual.documentOwnerUserId) return apiError("Assign a document owner before approval", 409);
-    if (!manual.revalidationDueAt || manual.revalidationDueAt.valueOf() <= Date.now()) return apiError("Set a future revalidation date before approval", 409);
+    if (!revalidationDueAt || revalidationDueAt.valueOf() <= now.valueOf()) return apiError("Set a future revalidation date before approval", 409);
   }
-  const now = new Date(); const reviewNotes = cleanText(body.reviewNotes, 1000);
-  let revalidationDueAt = manual.revalidationDueAt;
-  if (body.revalidationDueAt !== undefined) {
-    const candidate = new Date(String(body.revalidationDueAt));
-    if (!Number.isFinite(candidate.valueOf()) || candidate.valueOf() <= Date.now()) return apiError("Choose a future revalidation date");
-    revalidationDueAt = candidate;
-  }
+  const reviewNotes = cleanText(body.reviewNotes, 1000);
   const invalidatesSources = status !== "approved" || (manual.status === "approved" && (!manual.revalidationDueAt || manual.revalidationDueAt.valueOf() <= now.valueOf()));
   await db.batch([
     db.update(manuals).set({ status, reviewNotes, revalidationDueAt, reviewedByUserId: ctx.userId, reviewedAt: now, updatedAt: now }).where(and(eq(manuals.id, id), eq(manuals.organizationId, ctx.organizationId))),
     ...(invalidatesSources ? [db.update(manualSources).set({ revokedAt: now }).where(and(eq(manualSources.manualId, id), eq(manualSources.organizationId, ctx.organizationId), isNull(manualSources.revokedAt)))] : []),
-    db.insert(auditLogs).values({ id: crypto.randomUUID(), organizationId: ctx.organizationId, actorUserId: ctx.userId, action: `manual.${status}`, entityType: "manual", entityId: id, metadataJson: JSON.stringify({ reviewNotes }), createdAt: now }),
+    db.insert(auditLogs).values({
+      id: crypto.randomUUID(), organizationId: ctx.organizationId, actorUserId: ctx.userId,
+      action: `manual.${status}`, entityType: "manual", entityId: id,
+      metadataJson: JSON.stringify({
+        reviewNotes, previousStatus: manual.status, previousRevalidationDueAt: manual.revalidationDueAt,
+        revalidationDueAt, sourceApprovalsRevoked: invalidatesSources,
+      }),
+      createdAt: now,
+    }),
   ]);
-  return Response.json({ manual: { ...manual, status, reviewNotes, revalidationDueAt, reviewedByUserId: ctx.userId, reviewedAt: now, updatedAt: now } });
+  return Response.json({ manual: { ...manual, status, reviewNotes, revalidationDueAt, reviewedByUserId: ctx.userId, reviewedAt: now, updatedAt: now }, sourceApprovalsRevoked: invalidatesSources });
 }
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
