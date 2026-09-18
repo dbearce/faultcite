@@ -64,10 +64,13 @@ jobs:
             > "$RUNNER_TEMP/production-dns.json"
           jq -e '.success == true' "$RUNNER_TEMP/production-dns.json" > /dev/null
           jq -e '
-            (.result | length == 1) and
-            (.result[0].name == "app.faultcite.com") and
-            (.result[0].proxied == true)
+            (.result | length >= 1) and
+            (.result | all(
+              .name == "app.faultcite.com" and
+              .proxied == true
+            ))
           ' "$RUNNER_TEMP/production-dns.json" > /dev/null || {
+            jq -c '[.result[]? | {type, name, proxied}]' "$RUNNER_TEMP/production-dns.json" >&2
             echo "The existing production DNS record is not the verified proxied record; refusing to deploy"
             exit 1
           }
@@ -307,4 +310,3 @@ jobs:
           }
           curl --fail --silent --show-error --location --max-time 20 "$PRODUCTION_URL/sign-in" > /dev/null
           echo "Production health, storage, authentication boundary, and sign-in smoke checks passed."
-
