@@ -64,14 +64,25 @@ jobs:
             > "$RUNNER_TEMP/production-dns.json"
           jq -e '.success == true' "$RUNNER_TEMP/production-dns.json" > /dev/null
           jq -e '
-            (.result | length >= 1) and
-            (.result | all(
-              .name == "app.faultcite.com" and
-              .proxied == true
-            ))
+            (
+              (.result | length >= 1) and
+              (.result | all(
+                .name == "app.faultcite.com" and
+                .proxied == true
+              ))
+            ) or (
+              (.result | length == 1) and
+              (.result[0].type == "CNAME") and
+              (.result[0].name == "app.faultcite.com") and
+              (.result[0].proxied == false) and
+              (
+                .result[0].content == "custom-domains.chatgpt.site" or
+                .result[0].content == "custom-domains.chatgpt.site."
+              )
+            )
           ' "$RUNNER_TEMP/production-dns.json" > /dev/null || {
             jq -c '[.result[]? | {type, name, proxied}]' "$RUNNER_TEMP/production-dns.json" >&2
-            echo "The existing production DNS record is not the verified proxied record; refusing to deploy"
+            echo "The existing production DNS record is not a recognized preserved host; refusing to deploy"
             exit 1
           }
           jq -S '[.result[] | {id, type, name, content, proxied, ttl, modified_on}]' \
@@ -89,6 +100,7 @@ jobs:
             (.result[0].service == "faultcite-production") and
             (.result[0].zone_id == $zone)
           ' "$RUNNER_TEMP/production-domains.json" > /dev/null || {
+            jq -c '[.result[]? | {hostname, service, zone_id}]' "$RUNNER_TEMP/production-domains.json" >&2
             echo "The production domain is not bound to the approved production Worker; refusing to deploy"
             exit 1
           }
