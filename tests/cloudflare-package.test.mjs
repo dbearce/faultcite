@@ -60,3 +60,17 @@ test("staging deploy uploads through a guarded route-free temporary config", asy
   assert.match(source, /optional deploy mode must be --dry-run/);
   assert.equal((source.match(/deploy_config="\$config"/g) || []).length, 1);
 });
+
+test("production deployment is backup-first, route-free, billing-disabled, and DNS-preserving", async () => {
+  const source = await readFile(".github/workflows/deploy-cloudflare-production.yml", "utf8");
+  const backup = source.indexOf("Create production recovery bookmark before changes");
+  const migration = source.indexOf("Apply pending production D1 migrations");
+  const deploy = source.indexOf("Deploy FaultCite 0.3.9 to production");
+  assert.ok(backup > -1 && backup < migration && migration < deploy);
+  assert.match(source, /confirmation == 'DEPLOY-production'/);
+  assert.match(source, /FAULTCITE_PAID_BILLING_ENABLED.*text == "false"/);
+  assert.match(source, /wrangler d1 time-travel info DB/);
+  assert.match(source, /cmp "\$RUNNER_TEMP\/production-dns-before\.json" "\$RUNNER_TEMP\/production-dns-after\.json"/);
+  assert.match(source, /cmp "\$RUNNER_TEMP\/production-domains-before\.json" "\$RUNNER_TEMP\/production-domains-after\.json"/);
+  assert.doesNotMatch(source, /--request\s+(?:POST|PUT|PATCH|DELETE)/);
+});

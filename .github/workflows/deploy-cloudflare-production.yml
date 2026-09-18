@@ -1,0 +1,310 @@
+name: Deploy Cloudflare production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type DEPLOY-production
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: faultcite-cloudflare-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Back up, migrate, deploy, and verify FaultCite production
+    if: inputs.confirmation == 'DEPLOY-production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      PRODUCTION_URL: https://app.faultcite.com
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22.13.0
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.13.0
+
+      - name: Require encrypted credentials
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing Cloudflare API token"; exit 1; }
+          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing Cloudflare account ID"; exit 1; }
+
+      - name: Verify existing production domain belongs to the approved Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error --get \
+            "https://api.cloudflare.com/client/v4/zones" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --data-urlencode "name=faultcite.com" \
+            --data-urlencode "account.id=$CLOUDFLARE_ACCOUNT_ID" \
+            > "$RUNNER_TEMP/zone.json"
+          zone_id="$(jq -er '.result | if length == 1 and .[0].status == "active" then .[0].id else empty end' "$RUNNER_TEMP/zone.json")"
+
+          curl --fail-with-body --silent --show-error --get \
+            "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --data-urlencode "name=app.faultcite.com" \
+            > "$RUNNER_TEMP/production-dns.json"
+          jq -e '.success == true' "$RUNNER_TEMP/production-dns.json" > /dev/null
+          jq -e '
+            (.result | length == 1) and
+            (.result[0].name == "app.faultcite.com") and
+            (.result[0].proxied == true)
+          ' "$RUNNER_TEMP/production-dns.json" > /dev/null || {
+            echo "The existing production DNS record is not the verified proxied record; refusing to deploy"
+            exit 1
+          }
+          jq -S '[.result[] | {id, type, name, content, proxied, ttl, modified_on}]' \
+            "$RUNNER_TEMP/production-dns.json" > "$RUNNER_TEMP/production-dns-before.json"
+
+          curl --fail-with-body --silent --show-error --get \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --data-urlencode "hostname=app.faultcite.com" \
+            > "$RUNNER_TEMP/production-domains.json"
+          jq -e '.success == true' "$RUNNER_TEMP/production-domains.json" > /dev/null
+          jq -e --arg zone "$zone_id" '
+            (.result | length == 1) and
+            (.result[0].hostname == "app.faultcite.com") and
+            (.result[0].service == "faultcite-production") and
+            (.result[0].zone_id == $zone)
+          ' "$RUNNER_TEMP/production-domains.json" > /dev/null || {
+            echo "The production domain is not bound to the approved production Worker; refusing to deploy"
+            exit 1
+          }
+          jq -S '.result' "$RUNNER_TEMP/production-domains.json" > "$RUNNER_TEMP/production-domains-before.json"
+
+          curl --fail-with-body --silent --show-error \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/faultcite-production/subdomain" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            > "$RUNNER_TEMP/production-subdomain-response.json"
+          jq -e '.success == true and .result.enabled == false and .result.previews_enabled == false' \
+            "$RUNNER_TEMP/production-subdomain-response.json" > /dev/null || {
+            echo "Production workers.dev or preview URL exposure differs from the reviewed disabled state"
+            exit 1
+          }
+          jq -S '.result | {enabled, previews_enabled}' \
+            "$RUNNER_TEMP/production-subdomain-response.json" > "$RUNNER_TEMP/production-subdomain-before.json"
+          echo "PRODUCTION_ZONE_ID=$zone_id" >> "$GITHUB_ENV"
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Verify production resources and prepare exact bindings
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          settings="$RUNNER_TEMP/production-settings.json"
+          curl --fail-with-body --silent --show-error \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/faultcite-production/settings" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            > "$settings"
+          jq -e '.success == true' "$settings" > /dev/null
+          jq -e '
+            (.result.bindings | any(.name == "CLERK_SECRET_KEY" and .type == "secret_text")) and
+            (.result.bindings | any(.name == "RESEND_API_KEY" and .type == "secret_text")) and
+            (.result.bindings | any(.name == "DB" and .type == "d1")) and
+            (.result.bindings | any(.name == "BUCKET" and .type == "r2_bucket")) and
+            (.result.bindings | any(.name == "FAULTCITE_PAID_BILLING_ENABLED" and .text == "false"))
+          ' "$settings" > /dev/null
+
+          database_id="$(jq -er '.result.bindings | map(select(.name == "DB" and .type == "d1"))[0].id' "$settings")"
+          publishable_key="$(jq -er '
+            (.result.bindings | map(select(.name == "CLERK_PUBLISHABLE_KEY"))[0].text) //
+            (.result.bindings | map(select(.name == "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"))[0].text)
+          ' "$settings")"
+          email_from="$(jq -er '
+            (.result.bindings | map(select(.name == "FAULTCITE_EMAIL_FROM"))[0].text) //
+            (.result.bindings | map(select(.name == "FAULTCITE_FROM_EMAIL"))[0].text)
+          ' "$settings")"
+          echo "::add-mask::$database_id"
+          echo "::add-mask::$publishable_key"
+          echo "::add-mask::$email_from"
+
+          curl --fail-with-body --silent --show-error \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/d1/database/$database_id" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            > "$RUNNER_TEMP/production-database.json"
+          jq -e '.success == true and .result.name == "faultcite-production-db"' \
+            "$RUNNER_TEMP/production-database.json" > /dev/null
+
+          export PRODUCTION_DATABASE_ID="$database_id"
+          export PRODUCTION_CLERK_PUBLISHABLE_KEY="$publishable_key"
+          export PRODUCTION_EMAIL_FROM="$email_from"
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
+          const path = "cloudflare/wrangler.production.toml";
+          const current = readFileSync(path, "utf8");
+          const databaseId = process.env.PRODUCTION_DATABASE_ID;
+          if (!databaseId || !current.includes('database_id = "REPLACE_WITH_PRODUCTION_D1_DATABASE_ID"')) {
+            throw new Error("Production database placeholder could not be replaced safely");
+          }
+          writeFileSync(path, current.replace("REPLACE_WITH_PRODUCTION_D1_DATABASE_ID", databaseId));
+          appendFileSync(
+            path,
+            [
+              "",
+              `CLERK_PUBLISHABLE_KEY = ${JSON.stringify(process.env.PRODUCTION_CLERK_PUBLISHABLE_KEY)}`,
+              `FAULTCITE_EMAIL_FROM = ${JSON.stringify(process.env.PRODUCTION_EMAIL_FROM)}`,
+              "",
+            ].join("\n"),
+          );
+          NODE
+
+          grep -q '^FAULTCITE_PAID_BILLING_ENABLED = "false"$' cloudflare/wrangler.production.toml
+          grep -q '^database_id = "' cloudflare/wrangler.production.toml
+          ! grep -q 'REPLACE_WITH_PRODUCTION_D1_DATABASE_ID' cloudflare/wrangler.production.toml
+          grep -q '^bucket_name = "faultcite-production-files"$' cloudflare/wrangler.production.toml
+          grep -q '^FAULTCITE_APP_ORIGIN = "https://app.faultcite.com"$' cloudflare/wrangler.production.toml
+          grep -q '^CLERK_AUTHORIZED_PARTIES = "https://app.faultcite.com"$' cloudflare/wrangler.production.toml
+
+      - name: Validate production package without deployment
+        shell: bash
+        run: |
+          npm run cf:check
+          npm run build
+          npm run validate:artifact
+          FAULTCITE_CONFIRM=DEPLOY-production bash cloudflare/scripts/deploy.sh production --dry-run
+
+      - name: Create production recovery bookmark before changes
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --no-install wrangler d1 time-travel info DB \
+            --config cloudflare/wrangler.production.toml \
+            --json > "$RUNNER_TEMP/production-recovery.json"
+          jq -e 'type == "object" and length > 0' "$RUNNER_TEMP/production-recovery.json" > /dev/null
+          bookmark="$(jq -r '.bookmark // .result.bookmark // empty' "$RUNNER_TEMP/production-recovery.json")"
+          test -n "$bookmark" || { echo "A production recovery bookmark was not returned; refusing to continue"; exit 1; }
+          echo "Production D1 recovery bookmark created before migration or deployment."
+          echo "### Production recovery checkpoint" >> "$GITHUB_STEP_SUMMARY"
+          echo "D1 bookmark: \`$bookmark\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Apply pending production D1 migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
+          FAULTCITE_CONFIRM: MIGRATE-production
+        run: npm run cf:migrate:production
+
+      - name: Deploy FaultCite 0.3.9 to production
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
+          FAULTCITE_CONFIRM: DEPLOY-production
+        run: npm run cf:deploy:production
+
+      - name: Verify DNS and domain association were not changed
+        if: ${{ always() && env.PRODUCTION_ZONE_ID != '' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error --get \
+            "https://api.cloudflare.com/client/v4/zones/$PRODUCTION_ZONE_ID/dns_records" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --data-urlencode "name=app.faultcite.com" \
+            > "$RUNNER_TEMP/production-dns-after-response.json"
+          jq -e '.success == true' "$RUNNER_TEMP/production-dns-after-response.json" > /dev/null
+          jq -S '[.result[] | {id, type, name, content, proxied, ttl, modified_on}]' \
+            "$RUNNER_TEMP/production-dns-after-response.json" > "$RUNNER_TEMP/production-dns-after.json"
+          cmp "$RUNNER_TEMP/production-dns-before.json" "$RUNNER_TEMP/production-dns-after.json" || {
+            echo "Production DNS differs from its pre-deploy state; investigate immediately"
+            exit 1
+          }
+
+          curl --fail-with-body --silent --show-error --get \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --data-urlencode "hostname=app.faultcite.com" \
+            > "$RUNNER_TEMP/production-domains-after-response.json"
+          jq -e '.success == true' "$RUNNER_TEMP/production-domains-after-response.json" > /dev/null
+          jq -S '.result' "$RUNNER_TEMP/production-domains-after-response.json" > "$RUNNER_TEMP/production-domains-after.json"
+          cmp "$RUNNER_TEMP/production-domains-before.json" "$RUNNER_TEMP/production-domains-after.json" || {
+            echo "Production Custom Domain association changed; investigate immediately"
+            exit 1
+          }
+
+          curl --fail-with-body --silent --show-error \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/faultcite-production/subdomain" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            > "$RUNNER_TEMP/production-subdomain-after-response.json"
+          jq -e '.success == true' "$RUNNER_TEMP/production-subdomain-after-response.json" > /dev/null
+          jq -S '.result | {enabled, previews_enabled}' \
+            "$RUNNER_TEMP/production-subdomain-after-response.json" > "$RUNNER_TEMP/production-subdomain-after.json"
+          cmp "$RUNNER_TEMP/production-subdomain-before.json" "$RUNNER_TEMP/production-subdomain-after.json" || {
+            echo "Production workers.dev or preview exposure changed; investigate immediately"
+            exit 1
+          }
+          echo "Production DNS, Custom Domain, workers.dev, and preview state are unchanged."
+
+      - name: Verify production bindings and disabled billing
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/faultcite-production/settings" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            > "$RUNNER_TEMP/production-settings-after.json"
+          jq -e '
+            .success == true and
+            (.result.bindings | any(.name == "CLERK_SECRET_KEY" and .type == "secret_text")) and
+            (.result.bindings | any(.name == "RESEND_API_KEY" and .type == "secret_text")) and
+            (.result.bindings | any(.name == "DB" and .type == "d1")) and
+            (.result.bindings | any(.name == "BUCKET" and .type == "r2_bucket")) and
+            (.result.bindings | any(.name == "FAULTCITE_APP_ORIGIN" and .text == "https://app.faultcite.com")) and
+            (.result.bindings | any(.name == "CLERK_AUTHORIZED_PARTIES" and .text == "https://app.faultcite.com")) and
+            (.result.bindings | any(.name == "FAULTCITE_PAID_BILLING_ENABLED" and .text == "false"))
+          ' "$RUNNER_TEMP/production-settings-after.json" > /dev/null
+          echo "Production bindings verified; paid billing remains disabled."
+
+      - name: Run production smoke checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --max-time 20 "$PRODUCTION_URL/" > /dev/null
+          health="$(curl --fail --silent --show-error --max-time 20 "$PRODUCTION_URL/api/health")"
+          jq -e '
+            .status == "ok" and .release == "0.3.9" and
+            .dependencies.database == "ok" and .dependencies.fileStorage == "ok"
+          ' <<< "$health" > /dev/null
+          status="$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 20 \
+            -H 'oai-authenticated-user-email: forged@example.com' \
+            -H 'oai-authenticated-user-full-name: Forged%20User' \
+            -H 'oai-authenticated-user-full-name-encoding: percent-encoded-utf-8' \
+            "$PRODUCTION_URL/api/bootstrap")"
+          [[ "$status" == "401" || "$status" == "403" ]] || {
+            echo "Forged ChatGPT identity header was not rejected (HTTP $status)"
+            exit 1
+          }
+          curl --fail --silent --show-error --location --max-time 20 "$PRODUCTION_URL/sign-in" > /dev/null
+          echo "Production health, storage, authentication boundary, and sign-in smoke checks passed."
+
