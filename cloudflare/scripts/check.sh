@@ -3,12 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/common.sh"
 
 for config in cloudflare/wrangler.staging.toml cloudflare/wrangler.production.toml; do
-  if [[ "$config" == "cloudflare/wrangler.staging.toml" ]]; then
-    assert_config_ready "$config"
-  else
-    ! grep -Eq '(^|[[:space:]])routes?[[:space:]]*=' "$config" || die "production routes are forbidden"
-    ! grep -q '^\[\[routes\]\]$' "$config" || die "production Custom Domains are forbidden"
-  fi
+  assert_config_ready "$config"
   grep -q 'FAULTCITE_DEPLOYMENT_TARGET = "standalone"' "$config" || die "$config is not standalone"
   grep -q 'FAULTCITE_AUTH_PROVIDER = "clerk"' "$config" || die "$config is not configured for Clerk"
   grep -q 'FAULTCITE_RUNTIME = "standalone"' "$config" || die "$config lacks standalone runtime switch"
@@ -43,4 +38,4 @@ grep -q '^workers_dev = false$' cloudflare/wrangler.production.toml || die "prod
 grep -q '^preview_urls = false$' cloudflare/wrangler.production.toml || die "production preview URLs must remain disabled"
 
 for script in cloudflare/scripts/*.sh; do bash -n "$script"; done
-printf 'Cloudflare package checks passed (staging-only Custom Domain; production route-free).\n'
+printf 'Cloudflare package checks passed (one approved Custom Domain per environment).\n'

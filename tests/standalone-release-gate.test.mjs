@@ -46,7 +46,7 @@ test("Clerk identity bindings are unique and immutable in the database", async (
   );
 });
 
-test("standalone configuration limits the Custom Domain to staging, fails closed, and fixes Clerk parties", async () => {
+test("standalone configuration limits each environment to its approved Custom Domain, fails closed, and fixes Clerk parties", async () => {
   const [auth, staging, production, check] = await Promise.all([
     read("../app/auth.ts"),
     read("../cloudflare/wrangler.staging.toml"),
@@ -62,7 +62,8 @@ test("standalone configuration limits the Custom Domain to staging, fails closed
   assert.match(staging, /FAULTCITE_APP_ORIGIN = "https:\/\/staging\.faultcite\.com"/);
   assert.match(staging, /CLERK_AUTHORIZED_PARTIES = "https:\/\/staging\.faultcite\.com"/);
   assert.match(staging, /\[\[routes\]\]\npattern = "staging\.faultcite\.com"\ncustom_domain = true/);
-  assert.doesNotMatch(production, /(^|\n)\s*routes?\s*=|\[\[routes\]\]/);
+  assert.match(production, /\[\[routes\]\]\npattern = "app\.faultcite\.com"\ncustom_domain = true/);
+  assert.equal((production.match(/\[\[routes\]\]/g) || []).length, 1);
   assert.match(auth, /if \(!secretKey \|\| !publishableKey\) return null/);
   assert.match(auth, /clerk\.authenticateRequest\(request/);
   assert.doesNotMatch(auth, /x-forwarded-host/);

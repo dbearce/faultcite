@@ -17,8 +17,10 @@ head_sampling_rate = 1.0
 enabled = true
 head_sampling_rate = 0.01
 
-# Intentionally route-free. app.faultcite.com stays on the existing host until
-# staging acceptance, backup/restore rehearsal, and an approved cutover.
+[[routes]]
+pattern = "app.faultcite.com"
+custom_domain = true
+
 [assets]
 directory = "../dist/client"
 binding = "ASSETS"

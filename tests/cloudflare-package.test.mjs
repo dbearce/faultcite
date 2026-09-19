@@ -19,13 +19,10 @@ for (const [environment, path, origin] of configurations) {
     assert.match(source, /binding = "ASSETS"/);
     assert.match(source, /^workers_dev = false$/m);
     assert.match(source, /^preview_urls = false$/m);
-    if (environment === "staging") {
-      assert.match(source, /\[\[routes\]\]\npattern = "staging\.faultcite\.com"\ncustom_domain = true/);
-      assert.equal((source.match(/\[\[routes\]\]/g) || []).length, 1);
-    } else {
-      assert.doesNotMatch(source, /(^|\n)\s*routes?\s*=/);
-      assert.doesNotMatch(source, /\[\[routes\]\]/);
-    }
+    const hostname = environment === "staging" ? "staging\\.faultcite\\.com" : "app\\.faultcite\\.com";
+    assert.match(source, new RegExp(`\\[\\[routes\\]\\]\\npattern = "${hostname}"\\ncustom_domain = true`));
+    assert.equal((source.match(/\[\[routes\]\]/g) || []).length, 1);
+    assert.doesNotMatch(source, /(^|\n)\s*route\s*=/);
     assert.doesNotMatch(source, /CLERK_SECRET_KEY|RESEND_API_KEY\s*=/);
   });
 }
@@ -61,16 +58,20 @@ test("staging deploy uploads through a guarded route-free temporary config", asy
   assert.equal((source.match(/deploy_config="\$config"/g) || []).length, 1);
 });
 
-test("production deployment is backup-first, route-free, billing-disabled, and DNS-preserving", async () => {
+test("production deployment is backup-first, billing-disabled, one-host-only, and rollback-capable", async () => {
   const source = await readFile(".github/workflows/deploy-cloudflare-production.yml", "utf8");
   const backup = source.indexOf("Create production recovery bookmark before changes");
   const migration = source.indexOf("Apply pending production D1 migrations");
-  const deploy = source.indexOf("Deploy FaultCite 0.3.9 to production");
+  const deploy = source.indexOf("Cut over app.faultcite.com to FaultCite production");
   assert.ok(backup > -1 && backup < migration && migration < deploy);
   assert.match(source, /confirmation == 'DEPLOY-production'/);
   assert.match(source, /FAULTCITE_PAID_BILLING_ENABLED.*text == "false"/);
   assert.match(source, /wrangler d1 time-travel info DB/);
-  assert.match(source, /cmp "\$RUNNER_TEMP\/production-dns-before\.json" "\$RUNNER_TEMP\/production-dns-after\.json"/);
-  assert.match(source, /cmp "\$RUNNER_TEMP\/production-domains-before\.json" "\$RUNNER_TEMP\/production-domains-after\.json"/);
-  assert.doesNotMatch(source, /--request\s+(?:POST|PUT|PATCH|DELETE)/);
+  assert.match(source, /custom-domains\.chatgpt\.site/);
+  assert.match(source, /--request DELETE/);
+  assert.match(source, /rollback_legacy_dns/);
+  assert.match(source, /--request POST/);
+  assert.match(source, /production-dns-unrelated-before\.json/);
+  assert.match(source, /cmp "\$RUNNER_TEMP\/production-dns-unrelated-before\.json" "\$RUNNER_TEMP\/production-dns-unrelated-after\.json"/);
+  assert.match(source, /\.service == "faultcite-production"/);
 });

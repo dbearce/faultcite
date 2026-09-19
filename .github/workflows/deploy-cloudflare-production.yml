@@ -42,7 +42,7 @@ jobs:
           test -n "$CLOUDFLARE_API_TOKEN" || { echo "Missing Cloudflare API token"; exit 1; }
           test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "Missing Cloudflare account ID"; exit 1; }
 
-      - name: Verify existing production domain belongs to the approved Worker
+      - name: Verify exact legacy host and cutover permissions
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
@@ -64,29 +64,36 @@ jobs:
             > "$RUNNER_TEMP/production-dns.json"
           jq -e '.success == true' "$RUNNER_TEMP/production-dns.json" > /dev/null
           jq -e '
+            (.result | length == 1) and
+            (.result[0].type == "CNAME") and
+            (.result[0].name == "app.faultcite.com") and
+            (.result[0].proxied == false) and
             (
-              (.result | length >= 1) and
-              (.result | all(
-                .name == "app.faultcite.com" and
-                .proxied == true
-              ))
-            ) or (
-              (.result | length == 1) and
-              (.result[0].type == "CNAME") and
-              (.result[0].name == "app.faultcite.com") and
-              (.result[0].proxied == false) and
-              (
-                .result[0].content == "custom-domains.chatgpt.site" or
-                .result[0].content == "custom-domains.chatgpt.site."
-              )
+              .result[0].content == "custom-domains.chatgpt.site" or
+              .result[0].content == "custom-domains.chatgpt.site."
             )
           ' "$RUNNER_TEMP/production-dns.json" > /dev/null || {
-            jq -c '[.result[]? | {type, name, proxied}]' "$RUNNER_TEMP/production-dns.json" >&2
-            echo "The existing production DNS record is not a recognized preserved host; refusing to deploy"
+            jq -c '[.result[]? | {type, name, content, proxied}]' "$RUNNER_TEMP/production-dns.json" >&2
+            echo "The exact legacy app.faultcite.com CNAME was not found; refusing to cut over"
             exit 1
           }
-          jq -S '[.result[] | {id, type, name, content, proxied, ttl, modified_on}]' \
-            "$RUNNER_TEMP/production-dns.json" > "$RUNNER_TEMP/production-dns-before.json"
+          jq -S '.result[0]' "$RUNNER_TEMP/production-dns.json" > "$RUNNER_TEMP/production-legacy-dns.json"
+          jq -S '.result[0] | {
+            type, name, content, ttl, proxied,
+            comment: (.comment // null),
+            tags: (.tags // []),
+            settings: (.settings // null)
+          } | with_entries(select(.value != null))' \
+            "$RUNNER_TEMP/production-dns.json" > "$RUNNER_TEMP/production-legacy-dns-create.json"
+
+          curl --fail-with-body --silent --show-error --get \
+            "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --data-urlencode "per_page=5000000" \
+            > "$RUNNER_TEMP/production-zone-dns.json"
+          jq -e '.success == true' "$RUNNER_TEMP/production-zone-dns.json" > /dev/null
+          jq -S '[.result[] | select(.name != "app.faultcite.com") | {id, type, name, content, proxied, ttl}] | sort_by(.id)' \
+            "$RUNNER_TEMP/production-zone-dns.json" > "$RUNNER_TEMP/production-dns-unrelated-before.json"
 
           curl --fail-with-body --silent --show-error --get \
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" \
@@ -94,17 +101,11 @@ jobs:
             --data-urlencode "hostname=app.faultcite.com" \
             > "$RUNNER_TEMP/production-domains.json"
           jq -e '.success == true' "$RUNNER_TEMP/production-domains.json" > /dev/null
-          jq -e --arg zone "$zone_id" '
-            (.result | length == 1) and
-            (.result[0].hostname == "app.faultcite.com") and
-            (.result[0].service == "faultcite-production") and
-            (.result[0].zone_id == $zone)
-          ' "$RUNNER_TEMP/production-domains.json" > /dev/null || {
+          jq -e '.result | length == 0' "$RUNNER_TEMP/production-domains.json" > /dev/null || {
             jq -c '[.result[]? | {hostname, service, zone_id}]' "$RUNNER_TEMP/production-domains.json" >&2
-            echo "The production domain is not bound to the approved production Worker; refusing to deploy"
+            echo "app.faultcite.com is already attached to a Worker; refusing to replace an unknown association"
             exit 1
           }
-          jq -S '.result' "$RUNNER_TEMP/production-domains.json" > "$RUNNER_TEMP/production-domains-before.json"
 
           curl --fail-with-body --silent --show-error \
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/faultcite-production/subdomain" \
@@ -225,14 +226,97 @@ jobs:
           FAULTCITE_CONFIRM: MIGRATE-production
         run: npm run cf:migrate:production
 
-      - name: Deploy FaultCite 0.3.9 to production
+      - name: Cut over app.faultcite.com to FaultCite production
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
           FAULTCITE_CONFIRM: DEPLOY-production
-        run: npm run cf:deploy:production
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Verify DNS and domain association were not changed
+          rollback_legacy_dns() {
+            local status=$?
+            trap - ERR
+            set +e
+            echo "Cutover failed; restoring the exact pre-cutover hostname state." >&2
+
+            curl --silent --show-error --get \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" \
+              --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              --data-urlencode "hostname=app.faultcite.com" \
+              > "$RUNNER_TEMP/rollback-domains.json"
+            mapfile -t domain_ids < <(jq -r '
+              .result[]? |
+              select(.hostname == "app.faultcite.com" and .service == "faultcite-production") |
+              .id
+            ' "$RUNNER_TEMP/rollback-domains.json")
+            for domain_id in "${domain_ids[@]}"; do
+              curl --silent --show-error --request DELETE \
+                "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains/$domain_id" \
+                --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" > /dev/null
+            done
+
+            curl --silent --show-error --get \
+              "https://api.cloudflare.com/client/v4/zones/$PRODUCTION_ZONE_ID/dns_records" \
+              --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              --data-urlencode "name=app.faultcite.com" \
+              > "$RUNNER_TEMP/rollback-dns-current.json"
+            if ! jq -e '
+              (.result | length == 1) and
+              (.result[0].type == "CNAME") and
+              (.result[0].name == "app.faultcite.com") and
+              (.result[0].proxied == false) and
+              (.result[0].content | rtrimstr(".") == "custom-domains.chatgpt.site")
+            ' "$RUNNER_TEMP/rollback-dns-current.json" > /dev/null; then
+              curl --fail-with-body --silent --show-error --request POST \
+                "https://api.cloudflare.com/client/v4/zones/$PRODUCTION_ZONE_ID/dns_records" \
+                --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                --header "Content-Type: application/json" \
+                --data @"$RUNNER_TEMP/production-legacy-dns-create.json" \
+                > "$RUNNER_TEMP/rollback-dns-restore.json"
+              jq -e '.success == true' "$RUNNER_TEMP/rollback-dns-restore.json" > /dev/null
+            fi
+            echo "Legacy app.faultcite.com CNAME restoration completed." >&2
+            exit "$status"
+          }
+          trap rollback_legacy_dns ERR
+
+          legacy_record_id="$(jq -er '.id' "$RUNNER_TEMP/production-legacy-dns.json")"
+          curl --fail-with-body --silent --show-error --request DELETE \
+            "https://api.cloudflare.com/client/v4/zones/$PRODUCTION_ZONE_ID/dns_records/$legacy_record_id" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            > "$RUNNER_TEMP/production-legacy-dns-delete.json"
+          jq -e '.success == true' "$RUNNER_TEMP/production-legacy-dns-delete.json" > /dev/null
+
+          npm run cf:deploy:production
+
+          attached=false
+          for attempt in {1..12}; do
+            curl --fail-with-body --silent --show-error --get \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" \
+              --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              --data-urlencode "hostname=app.faultcite.com" \
+              > "$RUNNER_TEMP/production-domain-immediate.json"
+            if jq -e --arg zone "$PRODUCTION_ZONE_ID" '
+              (.result | length == 1) and
+              (.result[0].hostname == "app.faultcite.com") and
+              (.result[0].service == "faultcite-production") and
+              (.result[0].zone_id == $zone)
+            ' "$RUNNER_TEMP/production-domain-immediate.json" > /dev/null; then
+              attached=true
+              break
+            fi
+            sleep 5
+          done
+          [[ "$attached" == true ]] || {
+            echo "The production Worker Custom Domain did not become active; rolling back" >&2
+            false
+          }
+          trap - ERR
+          echo "The exact legacy CNAME was replaced by the faultcite-production Custom Domain."
+
+      - name: Verify exact production cutover and unchanged unrelated DNS
         if: ${{ always() && env.PRODUCTION_ZONE_ID != '' }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
@@ -246,10 +330,25 @@ jobs:
             --data-urlencode "name=app.faultcite.com" \
             > "$RUNNER_TEMP/production-dns-after-response.json"
           jq -e '.success == true' "$RUNNER_TEMP/production-dns-after-response.json" > /dev/null
-          jq -S '[.result[] | {id, type, name, content, proxied, ttl, modified_on}]' \
-            "$RUNNER_TEMP/production-dns-after-response.json" > "$RUNNER_TEMP/production-dns-after.json"
-          cmp "$RUNNER_TEMP/production-dns-before.json" "$RUNNER_TEMP/production-dns-after.json" || {
-            echo "Production DNS differs from its pre-deploy state; investigate immediately"
+          jq -e '
+            (.result | length >= 1) and
+            (.result | all(.name == "app.faultcite.com" and .proxied == true))
+          ' "$RUNNER_TEMP/production-dns-after-response.json" > /dev/null || {
+            jq -c '[.result[]? | {type, name, content, proxied}]' "$RUNNER_TEMP/production-dns-after-response.json" >&2
+            echo "app.faultcite.com does not have the expected Worker-managed DNS state"
+            exit 1
+          }
+
+          curl --fail-with-body --silent --show-error --get \
+            "https://api.cloudflare.com/client/v4/zones/$PRODUCTION_ZONE_ID/dns_records" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --data-urlencode "per_page=5000000" \
+            > "$RUNNER_TEMP/production-zone-dns-after.json"
+          jq -e '.success == true' "$RUNNER_TEMP/production-zone-dns-after.json" > /dev/null
+          jq -S '[.result[] | select(.name != "app.faultcite.com") | {id, type, name, content, proxied, ttl}] | sort_by(.id)' \
+            "$RUNNER_TEMP/production-zone-dns-after.json" > "$RUNNER_TEMP/production-dns-unrelated-after.json"
+          cmp "$RUNNER_TEMP/production-dns-unrelated-before.json" "$RUNNER_TEMP/production-dns-unrelated-after.json" || {
+            echo "An unrelated production DNS record changed; investigate immediately"
             exit 1
           }
 
@@ -259,9 +358,14 @@ jobs:
             --data-urlencode "hostname=app.faultcite.com" \
             > "$RUNNER_TEMP/production-domains-after-response.json"
           jq -e '.success == true' "$RUNNER_TEMP/production-domains-after-response.json" > /dev/null
-          jq -S '.result' "$RUNNER_TEMP/production-domains-after-response.json" > "$RUNNER_TEMP/production-domains-after.json"
-          cmp "$RUNNER_TEMP/production-domains-before.json" "$RUNNER_TEMP/production-domains-after.json" || {
-            echo "Production Custom Domain association changed; investigate immediately"
+          jq -e --arg zone "$PRODUCTION_ZONE_ID" '
+            (.result | length == 1) and
+            (.result[0].hostname == "app.faultcite.com") and
+            (.result[0].service == "faultcite-production") and
+            (.result[0].zone_id == $zone)
+          ' "$RUNNER_TEMP/production-domains-after-response.json" > /dev/null || {
+            jq -c '[.result[]? | {hostname, service, zone_id}]' "$RUNNER_TEMP/production-domains-after-response.json" >&2
+            echo "app.faultcite.com is not attached to the approved production Worker"
             exit 1
           }
 
@@ -276,7 +380,7 @@ jobs:
             echo "Production workers.dev or preview exposure changed; investigate immediately"
             exit 1
           }
-          echo "Production DNS, Custom Domain, workers.dev, and preview state are unchanged."
+          echo "Production Custom Domain is attached, unrelated DNS is unchanged, and workers.dev remains disabled."
 
       - name: Verify production bindings and disabled billing
         env:
