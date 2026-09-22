@@ -68,6 +68,34 @@ jobs:
           jq -e '.success == true' "$RUNNER_TEMP/staging-settings.json" > /dev/null
           jq -r '.result.bindings[]? | [.name, .type] | @tsv' "$RUNNER_TEMP/staging-settings.json"
 
+      - name: Verify production Custom Domain read access without changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 30 --get \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --data-urlencode "hostname=app.faultcite.com" \
+            > "$RUNNER_TEMP/production-domain-access.json"
+          jq -e '.success == true and (.result | type == "array")' \
+            "$RUNNER_TEMP/production-domain-access.json" > /dev/null
+          echo "Production Custom Domain read access verified; no association changed."
+
+      - name: Verify production resource bindings and disabled billing without changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 30 \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/faultcite-production/settings" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            > "$RUNNER_TEMP/production-access-settings.json"
+          jq -e '.success == true and
+            (.result.bindings | any(.name == "DB" and .type == "d1")) and
+            (.result.bindings | any(.name == "BUCKET" and .type == "r2_bucket" and .bucket_name == "faultcite-production-files")) and
+            (.result.bindings | any(.name == "FAULTCITE_PAID_BILLING_ENABLED" and .text == "false"))' \
+            "$RUNNER_TEMP/production-access-settings.json" > /dev/null
+          echo "Production binding access verified; paid billing is disabled. No values changed."
+
       - name: Inspect staging migration journal counts
         shell: bash
         run: |
