@@ -18,7 +18,11 @@ environment_config() {
 assert_config_ready() {
   local config="$1"
   [[ -f "$config" ]] || die "missing config: $config"
-  ! grep -q 'REPLACE_WITH_' "$config" || die "replace every placeholder in $config first"
+  if [[ "${2:-}" == "template" && "$config" == "cloudflare/wrangler.production.toml" ]]; then
+    ! sed '/^database_id = "REPLACE_WITH_PRODUCTION_D1_DATABASE_ID"$/d' "$config" | grep -q 'REPLACE_WITH_' || die "unexpected production placeholder"
+  else
+    ! grep -q 'REPLACE_WITH_' "$config" || die "replace every placeholder in $config first"
+  fi
   grep -q 'FAULTCITE_DEPLOYMENT_TARGET = "standalone"' "$config" || die "standalone deployment target missing"
   grep -q 'FAULTCITE_AUTH_PROVIDER = "clerk"' "$config" || die "Clerk auth provider missing"
   grep -q 'FAULTCITE_RUNTIME = "standalone"' "$config" || die "standalone runtime switch missing"

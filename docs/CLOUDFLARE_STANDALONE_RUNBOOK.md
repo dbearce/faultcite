@@ -1,6 +1,10 @@
 # FaultCite standalone Cloudflare runbook
 
-This runbook prepares a separate Clerk-authenticated Cloudflare deployment. It does **not** change `app.faultcite.com`, add a route, or modify GoDaddy DNS.
+This runbook describes the separate Clerk-authenticated Cloudflare deployment.
+For the owner-authorized production hostname transition, follow
+[the controlled cutover checklist](PRODUCTION_CUTOVER.md). Routine staging
+deployment does not change production or DNS. Production cutover is a separate,
+guarded operation and is not complete merely because a build passes.
 
 ## Fixed runtime contract
 
@@ -67,7 +71,7 @@ For R2 backup/restore/reconciliation, `FAULTCITE_R2_RCLONE_REMOTE` must be a ful
 - Backup: `BACKUP-staging`
 - Rollback: `ROLLBACK-staging-<deployment-id>`
 
-Production operations use the corresponding `production` confirmation and remain blocked until the production placeholders/resources exist. The production config intentionally contains no route.
+Production operations use the corresponding `production` confirmation and remain blocked until the production placeholders/resources exist. The production config now declares only the approved `app.faultcite.com` Custom Domain. The production workflow additionally requires current reviewed data-continuity and protected-backup receipts before making changes.
 
 ## Required acceptance before cutover
 

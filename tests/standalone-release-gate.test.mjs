@@ -83,8 +83,10 @@ test("staging acceptance and artifact packaging gates are executable", async () 
   assert.match(validator, /0027_governance_acknowledgement_evidence\.sql/);
   assert.match(validator, /0028_manual_source_revocation_guard\.sql/);
   assert.match(smoke, /forged ChatGPT identity was rejected/);
-  for (const role of ["OWNER", "TECHNICIAN", "MANAGER", "OUTSIDER"]) {
-    assert.match(acceptance, new RegExp(`FAULTCITE_${role}_TOKEN`));
-  }
+  assert.match(acceptance, /for role in OWNER TECHNICIAN MANAGER OUTSIDER; do/);
+  assert.ok(acceptance.includes('variable="FAULTCITE_${role}_TOKEN"'));
+  assert.ok(acceptance.includes('${!variable:-}'));
+  assert.match(acceptance, /four distinct user identities are required/);
+  assert.match(acceptance, /owner positive control must return HTTP 200/);
   assert.match(acceptance, /company isolation/i);
 });

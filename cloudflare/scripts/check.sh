@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/common.sh"
 
 for config in cloudflare/wrangler.staging.toml cloudflare/wrangler.production.toml; do
-  assert_config_ready "$config"
+  assert_config_ready "$config" template
   grep -q 'FAULTCITE_DEPLOYMENT_TARGET = "standalone"' "$config" || die "$config is not standalone"
   grep -q 'FAULTCITE_AUTH_PROVIDER = "clerk"' "$config" || die "$config is not configured for Clerk"
   grep -q 'FAULTCITE_RUNTIME = "standalone"' "$config" || die "$config lacks standalone runtime switch"

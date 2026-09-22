@@ -69,8 +69,8 @@ test("production deployment is backup-first, billing-disabled, one-host-only, an
   assert.match(source, /wrangler d1 time-travel info DB/);
   assert.match(source, /custom-domains\.chatgpt\.site/);
   assert.match(source, /--request DELETE/);
-  assert.match(source, /rollback_legacy_dns/);
-  assert.match(source, /--request POST/);
+  assert.match(source, /recover-production-domain\.mjs/);
+  assert.match(source, /production-cutover-accepted/);
   assert.match(source, /production-dns-unrelated-before\.json/);
   assert.match(source, /cmp "\$RUNNER_TEMP\/production-dns-unrelated-before\.json" "\$RUNNER_TEMP\/production-dns-unrelated-after\.json"/);
   assert.match(source, /\.service == "faultcite-production"/);
