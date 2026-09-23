@@ -81,20 +81,29 @@ jobs:
             "$RUNNER_TEMP/production-domain-access.json" > /dev/null
           echo "Production Custom Domain read access verified; no association changed."
 
-      - name: Verify production resource bindings and disabled billing without changes
+      - name: Reconcile existing Worker metadata without changing resources
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --max-time 30 \
-            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/faultcite-production/settings" \
-            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-            > "$RUNNER_TEMP/production-access-settings.json"
-          jq -e '.success == true and
-            (.result.bindings | any(.name == "DB" and .type == "d1")) and
-            (.result.bindings | any(.name == "BUCKET" and .type == "r2_bucket" and .bucket_name == "faultcite-production-files")) and
-            (.result.bindings | any(.name == "FAULTCITE_PAID_BILLING_ENABLED" and .text == "false"))' \
-            "$RUNNER_TEMP/production-access-settings.json" > /dev/null
-          echo "Production binding access verified; paid billing is disabled. No values changed."
+          for worker in faultcite-public faultcite-production; do
+            if ! jq -e --arg worker "$worker" 'any(.result[]; .id == $worker)' "$RUNNER_TEMP/workers.json" > /dev/null; then
+              echo "$worker: absent from authenticated Worker inventory; not deployment-ready."
+              continue
+            fi
+            curl --fail --silent --show-error --max-time 30 \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$worker/settings" \
+              --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              > "$RUNNER_TEMP/$worker-settings.json"
+            jq -e '.success == true' "$RUNNER_TEMP/$worker-settings.json" > /dev/null
+            echo "$worker binding metadata (secret values excluded):"
+            jq '[.result.bindings[]? | {name, type} +
+              (if .type == "d1" then {database_id} elif .type == "r2_bucket" then {bucket_name}
+               elif .name == "FAULTCITE_PAID_BILLING_ENABLED" then {billing_disabled: (.text == "false")}
+               else {} end)]' "$RUNNER_TEMP/$worker-settings.json"
+          done
+          echo "app.faultcite.com Worker domain associations:"
+          jq '[.result[]? | {hostname, service, environment}]' "$RUNNER_TEMP/production-domain-access.json"
+          echo "Inventory completion is not production readiness or permission to cut over."
 
       - name: Inspect staging migration journal counts
         shell: bash
@@ -169,3 +178,20 @@ jobs:
             > "$RUNNER_TEMP/zone.json"
           jq -e '.success == true and (.result | length == 1)' "$RUNNER_TEMP/zone.json" > /dev/null
           echo "faultcite.com zone access verified"
+
+      - name: Inspect app DNS and zone Worker routes without changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          zone_id="$(jq -er '.result[0].id' "$RUNNER_TEMP/zone.json")"
+          curl --fail --silent --show-error --max-time 30 --get \
+            "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            --data-urlencode "name=app.faultcite.com" > "$RUNNER_TEMP/app-dns.json"
+          jq -e '.success == true' "$RUNNER_TEMP/app-dns.json" > /dev/null
+          jq '[.result[] | {name, type, content, proxied}]' "$RUNNER_TEMP/app-dns.json"
+          curl --fail --silent --show-error --max-time 30 \
+            "https://api.cloudflare.com/client/v4/zones/$zone_id/workers/routes" \
+            --header "Authorization: Bearer $CLOUDFLARE_API_TOKEN" > "$RUNNER_TEMP/zone-routes.json"
+          jq -e '.success == true' "$RUNNER_TEMP/zone-routes.json" > /dev/null
+          jq '[.result[] | {pattern, script}]' "$RUNNER_TEMP/zone-routes.json"
