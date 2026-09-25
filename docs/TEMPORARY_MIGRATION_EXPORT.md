@@ -39,13 +39,41 @@ Do not activate any pause without asking the owner first.
 
 ## Remaining before live use
 
+### Offline restore rehearsal
+
+The local checker `cloudflare/scripts/verify-migration-export.py` validates a
+download and attempts restoration only in a new private temporary directory:
+
+```sh
+python3 cloudflare/scripts/verify-migration-export.py /protected/path/faultcite-migration.ndjson
+```
+
+Use only synthetic archives until the live-use requirements below are satisfied.
+The checker deletes its temporary restored copy when finished. It does not import
+into Cloudflare, retain a recoverable backup, encrypt the input, or establish that
+the source was frozen. Its `productionAcceptance` result remains `false`.
+Regression tests run through the normal `npm test` release checks and require
+Python 3.11 or later. A checksum detects damage, not a maliciously replaced archive.
+Source provenance must be independently verified before accepting a live backup.
+
+Validation checkpoint (2026-09-25 UTC): full `npm run build` passed lint, type
+checks, artifact validation and 157 Node tests, including a wrapper that ran 10
+Python restore tests. A real SQLite fixture passed exporter-to-checker roundtrip;
+R2 was mocked. Additional fixtures cover corruption, truncation, SQL attacks,
+file-key traversal, foreign-key failures, sequences and generated columns.
+These are development results, not production acceptance or a live backup.
+The checker limits each record to 8 MiB and restoration to a SQLite instruction
+budget; unsupported schema functions or larger records fail closed.
+
+### Live-use requirements
+
 1. Independent review and deployed staging authentication/streaming tests with
    synthetic data. Current tests exercise actual SQLite but mock R2 and auth gate
    inputs; they do not establish real Clerk or deployed Worker behavior.
-2. Implement and test a protected collector/importer: validate all record types,
-   file sizes/checksums, terminal checksum/count, schema dependency order, and
-   restore into isolated D1/R2. Preserve SQLite sequences after table inserts;
-   recreate triggers after loading data. Never execute unverified SQL on live data.
+2. Finish the protected collection and isolated D1/R2 import path. The offline
+   SQLite checker is not a deployed D1/R2 restore rehearsal. Preserve SQLite
+   sequences after table inserts; recreate triggers after loading data. Never
+   execute unverified SQL on live data.
 3. Full file/table reconciliation and restore rehearsal. The fixture restore test
    is NOT a complete production restoration proof. Large exports can hit runtime
    limits; interruption must produce a failed backup, never acceptance evidence.
@@ -59,3 +87,10 @@ Do not activate any pause without asking the owner first.
    deployment. Remove the route/configuration after migration and verify denial.
 
 Do not populate production continuity receipts until all real evidence exists.
+
+The current route accepts only Clerk identities. `app/auth.ts` selects Clerk only
+on the standalone runtime path; the Sites source authentication path must be
+proven end-to-end before any production activation. Do not bypass this with an
+email match, client-supplied runtime header, or ordinary company-owner role.
+The current archive header does not bind the archive to a release, source origin,
+or freeze receipt. Add reviewed provenance before production continuity use.
