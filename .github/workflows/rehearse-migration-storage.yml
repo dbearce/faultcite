@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       confirmation:
-        description: Type REHEARSE-synthetic-only (creates isolated test resources)
+        description: Type REHEARSE-synthetic-only (reuses the five existing test resources)
         required: true
         type: string
 permissions:
@@ -20,20 +20,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 568714b8e78c8c2d058fd0c46c2d763ac417953b
+          ref: 20efea7fc628c1eabd763d8cee3c39f4f37968ee
       - uses: actions/setup-node@v4
         with:
           node-version: 22.13.0
       - name: Install locked dependencies
         run: npm ci --ignore-scripts
-      - name: Validate synthetic handler locally before any remote creation
+      - name: Validate synthetic handler locally before remote rehearsal
         run: node --test cloudflare/rehearsal/worker.test.mjs
-      - name: Create fresh synthetic source and target; rehearse bounded restore
+      - name: Verify existing synthetic source and target; resume bounded restore
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFARE_ACCOUNT_ID }}
           REHEARSAL_CONFIRM: ${{ inputs.confirmation }}
-        run: node cloudflare/rehearsal/run.mjs
+        run: node cloudflare/rehearsal/resume.mjs
       - name: Preserve synthetic-only result and resource cleanup inventory
         if: always()
         uses: actions/upload-artifact@v4
