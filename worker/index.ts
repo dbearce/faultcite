@@ -3,6 +3,7 @@ import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } fr
 import handler from "vinext/server/app-router-entry";
 import { runWithRequestEnv } from "../lib/request-env";
 import { applyAppSecurityHeaders } from "../lib/security-headers";
+import { writePauseResponse } from "../lib/write-pause.mjs";
 
 interface Env {
   ASSETS: Fetcher;
@@ -13,6 +14,8 @@ interface Env {
   STRIPE_PRICE_ID?: string;
   STRIPE_WEBHOOK_SECRET?: string;
   FAULTCITE_PAID_BILLING_ENABLED?: string;
+  FAULTCITE_WRITE_PAUSE_ENABLED?: string;
+  FAULTCITE_WRITE_PAUSE_ID?: string;
   RESEND_API_KEY?: string;
   FAULTCITE_CONTACT_EMAIL?: string;
   FAULTCITE_EMAIL_FROM?: string;
@@ -40,6 +43,15 @@ const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const requestId = request.headers.get("cf-ray") || crypto.randomUUID();
+
+    // First admission decision: even GET rendering/auth/health can have side
+    // effects. Return before redirects, Worker-served assets, webhooks or app
+    // code. Platform-served static assets may not enter this handler.
+    const paused = writePauseResponse(request, {
+      enabled: env.FAULTCITE_WRITE_PAUSE_ENABLED,
+      id: env.FAULTCITE_WRITE_PAUSE_ID,
+    });
+    if (paused) return secure(paused, url.pathname, requestId);
 
     const canonicalOrigin = canonicalAppOrigin(env.FAULTCITE_APP_ORIGIN);
     const isLegacySitesHost = url.hostname.endsWith(".chatgpt.site");

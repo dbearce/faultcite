@@ -16,6 +16,8 @@ declare module "cloudflare:workers" {
     FAULTCITE_MIGRATION_EXPORT_SUBJECT?: string;
     FAULTCITE_MIGRATION_SOURCE_FROZEN?: string;
     FAULTCITE_MIGRATION_FREEZE_RECEIPT?: string;
+    FAULTCITE_WRITE_PAUSE_ENABLED?: string;
+    FAULTCITE_WRITE_PAUSE_ID?: string;
   };
 }
 

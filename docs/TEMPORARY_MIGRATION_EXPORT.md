@@ -37,6 +37,12 @@ set it on a mutable source. All GET side effects, webhooks, upload completions,
 background writers and admin writes must be stopped/drained before a real snapshot.
 Do not activate any pause without asking the owner first.
 
+The development request-admission gate is now implemented; see
+`docs/WRITE_PAUSE_REHEARSAL.md`. Export additionally requires
+`FAULTCITE_WRITE_PAUSE_ENABLED=true` and a valid `FAULTCITE_WRITE_PAUSE_ID` matching
+the freeze receipt. No flags have been activated. The gate stops new dynamic
+requests but does not drain previously admitted work or block external writers.
+
 ## Remaining before live use
 
 ### Offline restore rehearsal

@@ -12,6 +12,8 @@ export async function POST(request: Request) {
     subject: env.FAULTCITE_MIGRATION_EXPORT_SUBJECT,
     frozen: env.FAULTCITE_MIGRATION_SOURCE_FROZEN,
     freezeReceipt: env.FAULTCITE_MIGRATION_FREEZE_RECEIPT,
+    pauseEnabled: env.FAULTCITE_WRITE_PAUSE_ENABLED,
+    pauseId: env.FAULTCITE_WRITE_PAUSE_ID,
   };
   const blocked = exportGate(request, config);
   if (blocked !== 200) return new Response(null, { status: blocked, headers: { 'cache-control': 'no-store' } });

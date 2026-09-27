@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { authorizedExporter, exportGate, exportRecords, exportStream } from '../lib/migration-export.mjs';
 
 const now = Date.now();
-const config = { enabled: 'true', expiresAt: new Date(now + 60000).toISOString(), subject: 'user_test', frozen: 'true', freezeReceipt: 'offline-fixture' };
+const config = { enabled: 'true', expiresAt: new Date(now + 60000).toISOString(), subject: 'user_test', frozen: 'true', freezeReceipt: 'offline-fixture', pauseEnabled: 'true', pauseId: 'offline-fixture' };
 const request = (origin = 'https://staging.faultcite.com', method = 'POST') => new Request(origin + '/api/admin/migration-export', { method, headers: { origin, 'x-faultcite-export': 'download' } });
 test('export is default off, production hard-blocked, and time bounded', () => {
   assert.equal(exportGate(request(), {}, now), 404);
@@ -18,6 +18,9 @@ test('export is default off, production hard-blocked, and time bounded', () => {
   assert.equal(exportGate(request(), { ...config, expiresAt: new Date(now + 3600000).toISOString() }, now), 403);
   assert.equal(exportGate(request(), { ...config, frozen: 'false' }, now), 409);
   assert.equal(exportGate(request(), { ...config, freezeReceipt: '' }, now), 409);
+  assert.equal(exportGate(request(), { ...config, pauseEnabled: 'false' }, now), 409);
+  assert.equal(exportGate(request(), { ...config, pauseId: 'other-fixture' }, now), 409);
+  assert.equal(exportGate(request(), { ...config, pauseId: undefined }, now), 409);
   assert.equal(exportGate(request(undefined, 'GET'), config, now), 403);
   const cross = request(); cross.headers.set('origin', 'https://evil.example');
   assert.equal(exportGate(cross, config, now), 403);
