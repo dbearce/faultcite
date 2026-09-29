@@ -148,6 +148,14 @@ const trackedWorker = {
     }), new URL(request.url).pathname);
     if (enabled !== 'true') return unavailable();
     const url = new URL(request.url);
+    // A deliberate admission rejection must not create a ticket: its 503 is
+    // not an uncertain application failure. This also covers transitions where
+    // the environment pause and persistent pause are changed separately.
+    const paused = writePauseResponse(request, {
+      enabled: env.FAULTCITE_WRITE_PAUSE_ENABLED,
+      id: env.FAULTCITE_WRITE_PAUSE_ID,
+    });
+    if (paused) return secure(paused, url.pathname);
     // Export acquires its own exclusive ticket AFTER independent authorization.
     if (request.method === 'POST' && url.pathname === '/api/admin/migration-export' && !url.search) {
       return worker.fetch(request, env, ctx);
