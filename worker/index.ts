@@ -4,6 +4,8 @@ import handler from "vinext/server/app-router-entry";
 import { runWithRequestEnv } from "../lib/request-env";
 import { applyAppSecurityHeaders } from "../lib/security-headers";
 import { writePauseResponse } from "../lib/write-pause.mjs";
+import { createPersistentDrain } from "../lib/persistent-drain.mjs";
+import { runTrackedRequest } from "../lib/drain-lifetime.mjs";
 
 interface Env {
   ASSETS: Fetcher;
@@ -16,6 +18,7 @@ interface Env {
   FAULTCITE_PAID_BILLING_ENABLED?: string;
   FAULTCITE_WRITE_PAUSE_ENABLED?: string;
   FAULTCITE_WRITE_PAUSE_ID?: string;
+  FAULTCITE_DRAIN_TRACKING_ENABLED?: string;
   RESEND_API_KEY?: string;
   FAULTCITE_CONTACT_EMAIL?: string;
   FAULTCITE_EMAIL_FROM?: string;
@@ -134,4 +137,32 @@ function canonicalAppOrigin(value?: string) {
   }
 }
 
-export default worker;
+// Default-off until the coordination schema and all writer paths are verified.
+// No request header can enable/disable tracking or claim a completed ticket.
+const trackedWorker = {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    const enabled = env.FAULTCITE_DRAIN_TRACKING_ENABLED;
+    if (enabled === undefined || enabled === 'false') return worker.fetch(request, env, ctx);
+    const unavailable = () => secure(Response.json({ error: 'Maintenance coordination unavailable' }, {
+      status: 503, headers: { 'cache-control': 'no-store', 'retry-after': '60' },
+    }), new URL(request.url).pathname);
+    if (enabled !== 'true') return unavailable();
+    const url = new URL(request.url);
+    // Export acquires its own exclusive ticket AFTER independent authorization.
+    if (request.method === 'POST' && url.pathname === '/api/admin/migration-export' && !url.search) {
+      return worker.fetch(request, env, ctx);
+    }
+    try {
+      const drain = createPersistentDrain(env.DB);
+      const ticket = await drain.admit();
+      return await runTrackedRequest(worker.fetch.bind(worker), request, env, ctx, {
+        complete: () => drain.complete(ticket),
+      });
+    } catch {
+      // Any uncertain outcome leaves its ticket present; never auto-expire it.
+      return unavailable();
+    }
+  },
+};
+
+export default trackedWorker;

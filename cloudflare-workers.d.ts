@@ -20,6 +20,7 @@ declare module "cloudflare:workers" {
     FAULTCITE_MIGRATION_FREEZE_RECEIPT?: string;
     FAULTCITE_WRITE_PAUSE_ENABLED?: string;
     FAULTCITE_WRITE_PAUSE_ID?: string;
+    FAULTCITE_DRAIN_TRACKING_ENABLED?: string;
   };
 }
 

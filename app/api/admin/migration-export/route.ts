@@ -2,7 +2,9 @@ import { and, eq } from 'drizzle-orm';
 import { getAuthUser } from '../../../auth';
 import { getDb } from '../../../../db';
 import { authIdentities, platformAdmins } from '../../../../db/schema';
-import { authorizedExporter, exportGate, exportRecords, exportStream } from '../../../../lib/migration-export.mjs';
+import { authorizedExporter, exportGate, exportStream } from '../../../../lib/migration-export.mjs';
+import { createPersistentDrain } from '../../../../lib/persistent-drain.mjs';
+import { drainedExportRecords } from '../../../../lib/drained-export.mjs';
 
 export async function POST(request: Request) {
   const { env } = await import('cloudflare:workers');
@@ -26,8 +28,15 @@ export async function POST(request: Request) {
     .innerJoin(platformAdmins, eq(platformAdmins.userId, authIdentities.userId))
     .where(and(eq(authIdentities.provider, 'clerk'), eq(authIdentities.providerSubject, identity.subject))).limit(1);
   if (!authorizedExporter(identity, admin, config.subject)) return new Response(null, { status: 403 });
+  if (env.FAULTCITE_DRAIN_TRACKING_ENABLED !== 'true') return new Response(null, { status: 409 });
   const lease = () => { if (exportGate(request, config) !== 200) throw new Error('Export lease expired'); };
-  return new Response(exportStream(exportRecords(env.DB, env.BUCKET, lease)), { headers: {
+  let records;
+  try {
+    records = await drainedExportRecords(env.DB, env.BUCKET, createPersistentDrain(env.DB), config.pauseId, lease);
+  } catch {
+    return new Response(null, { status: 409, headers: { 'cache-control': 'no-store' } });
+  }
+  return new Response(exportStream(records), { headers: {
     'content-type': 'application/x-ndjson',
     'content-disposition': 'attachment; filename="faultcite-migration.ndjson"',
     'cache-control': 'private, no-store',
