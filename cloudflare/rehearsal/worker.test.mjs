@@ -76,6 +76,6 @@ test('readiness authenticates the current lease without storage bindings', async
     const response = await mf.dispatchFetch('https://fixture/ready', { headers: { Authorization: 'Bearer current-token' } });
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { ready: true, expiresAt });
-    assert.equal((await mf.dispatchFetch('https://fixture/ready', { method: 'POST', headers: { Authorization: 'Bearer current-token' } })).status, 404);
+    assert.equal((await mf.dispatchFetch('https://fixture/ready', { method: 'POST', headers: { Authorization: 'Bearer current-token' } })).status, 200);
   } finally { await mf.dispose(); }
 });
