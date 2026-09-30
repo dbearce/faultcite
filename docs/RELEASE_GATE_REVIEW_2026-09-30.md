@@ -12,12 +12,12 @@
 - Production cutover guard correctly refused to continue because the required
   PRODUCTION_DATA_CONTINUITY.json evidence is absent. No substitute was fabricated.
 
-## Not completed; deployment must remain blocked
+## Updated release gates; production cutover remains blocked
 
-1. Updated hosted rehearsal: prepared code has local coverage but no new hosted
-   acceptance. The configured workflow creates fresh isolated resources and will
-   not overwrite prior fixtures. Current GitHub connector has read/rerun operations,
-   but no new workflow-dispatch operation; browser fallback needs user approval.
+1. Hosted synthetic rehearsal completed in run 36666198467. See
+   HOSTED_REHEARSAL_ACCEPTANCE_2026-09-30.md and its raw evidence. This passed
+   isolated fixture restoration and cooperating-writer coordination; it does not
+   establish real source administrator access or production data continuity.
 2. Source administrator verification: version 35 lacks the new readiness/export
    routes. The development readiness route deliberately excludes the production
    origin. A separately reviewed, non-exporting source-compatible probe is needed;
@@ -33,6 +33,7 @@
 5. Real protected backup and isolated restore, then owner-approved maintenance
    and controlled cutover. Keep billing disabled throughout.
 
-No new deployment, cloud resources, production pause, customer export or DNS
-changes were performed during this review. This is a blocked release report,
+The initial review made no production changes. The subsequent authorized
+synthetic rehearsal created isolated test resources and deployed a test Worker.
+No production pause, customer export or DNS change was performed. This is a blocked release report,
 not acceptance evidence or a claim that the app is fully deployable.
