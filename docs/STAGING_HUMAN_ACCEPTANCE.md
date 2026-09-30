@@ -9,7 +9,7 @@ Run this only against the isolated `faultcite-staging` Worker. Do not change the
 - One manager account in the same company
 - One outsider account in a different company
 
-Each account must belong to a different person and use a separately verified email address. Do not share session tokens or passwords in chat, screenshots, tickets, or source control.
+Use four distinct account identities with separately verified email addresses. Two friends may operate these accounts for staging tests; a different human must independently approve the submitting tester’s work. Preserve completed test evidence instead of repeating previously verified steps. Do not share session tokens or passwords in chat, screenshots, tickets, or source control.
 
 ## Automated role and isolation check
 
