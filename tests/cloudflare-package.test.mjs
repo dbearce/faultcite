@@ -7,6 +7,16 @@ const configurations = [
   ["production", "cloudflare/wrangler.production.toml", "https://app.faultcite.com"],
 ];
 
+test("legacy backup and restore avoid incomplete production exports and destructive R2 sync", async () => {
+  const backup = await readFile("cloudflare/scripts/backup.sh", "utf8");
+  const restore = await readFile("cloudflare/scripts/restore.sh", "utf8");
+  assert.ok(backup.indexOf('legacy plaintext backup is staging-only') < backup.indexOf('wrangler d1 export'));
+  assert.ok(backup.indexOf('a complete backup requires') < backup.indexOf('wrangler d1 export'));
+  assert.ok(restore.indexOf('R2 target is not empty') < restore.indexOf('--file "$source_dir/database.sql"'));
+  assert.match(restore, /--immutable/);
+  assert.doesNotMatch(backup + restore, /rclone sync/);
+});
+
 for (const [environment, path, origin] of configurations) {
   test(`${environment} Cloudflare configuration uses only its approved hostname and Clerk`, async () => {
     const source = await readFile(path, "utf8");
