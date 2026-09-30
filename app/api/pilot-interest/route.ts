@@ -41,8 +41,11 @@ export async function POST(request: Request) {
   if (apiKey && contact) {
     const safe = (value: string) => value.replace(/[&<>\"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[character]!));
     try {
-      await fetch("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" }, signal: AbortSignal.timeout(10_000), body: JSON.stringify({ from: env.FAULTCITE_EMAIL_FROM || "FaultCite <invites@faultcite.com>", to: [contact], reply_to: email, subject: `FaultCite pilot request — ${company}`, html: `<p><strong>${safe(name)}</strong> from <strong>${safe(company)}</strong> requested a FaultCite pilot.</p><p>Email: ${safe(email)}</p><p>${safe(message || "No additional message provided.")}</p>` }) });
+      const response = await fetch("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${apiKey}`, "content-type": "application/json" }, signal: AbortSignal.timeout(10_000), body: JSON.stringify({ from: env.FAULTCITE_EMAIL_FROM || "FaultCite <invites@faultcite.com>", to: [contact], reply_to: email, subject: `FaultCite pilot request — ${company}`, html: `<p><strong>${safe(name)}</strong> from <strong>${safe(company)}</strong> requested a FaultCite pilot.</p><p>Email: ${safe(email)}</p><p>${safe(message || "No additional message provided.")}</p>` }) });
+      if (!response.ok) console.warn("[faultcite-pilot-interest] notification rejected", { status: response.status });
     } catch { console.warn("[faultcite-pilot-interest] notification delivery failed"); }
+  } else {
+    console.warn("[faultcite-pilot-interest] notification not configured");
   }
   return redirectToPilot("received");
 }
