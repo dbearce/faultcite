@@ -1,0 +1,61 @@
+{
+  "prefix": "fc-rehearsal-36651610765-1-1df4f18b",
+  "resumedFromRun": "36651610765",
+  "syntheticOnly": true,
+  "productionAcceptance": false,
+  "resources": [
+    {
+      "type": "d1",
+      "name": "fc-rehearsal-36651610765-1-1df4f18b-source",
+      "id": "1d3196f1-7b75-4759-9495-a3e8b472a21a"
+    },
+    {
+      "type": "d1",
+      "name": "fc-rehearsal-36651610765-1-1df4f18b-target",
+      "id": "04287b4d-54d4-4969-88d1-0aa3ac1e54ea"
+    },
+    {
+      "type": "r2",
+      "name": "fc-rehearsal-36651610765-1-1df4f18b-source"
+    },
+    {
+      "type": "r2",
+      "name": "fc-rehearsal-36651610765-1-1df4f18b-target"
+    },
+    {
+      "type": "worker",
+      "name": "fc-rehearsal-36651610765-1-1df4f18b"
+    }
+  ],
+  "status": "synthetic-rehearsal-passed",
+  "generation": "28373aa3bbd865a1bf3a24a0d916bbf9",
+  "readinessStatuses": [
+    403,
+    403,
+    200
+  ],
+  "readinessGenerationMatched": true,
+  "postReadinessStatus": 200,
+  "postReadinessGenerationMatched": true,
+  "postReadinessDiagnostics": {
+    "authorizationPresent": null,
+    "bearerFormat": null
+  },
+  "unauthenticatedStatuses": [
+    401
+  ],
+  "anonymousGenerationMatched": true,
+  "authenticatedStatus": 200,
+  "authenticatedGenerationMatched": true,
+  "evidence": {
+    "syntheticHostedRestore": "passed",
+    "productionAcceptance": false,
+    "sourceAppAuthenticationVerified": false,
+    "fileSha256": "02675bf9284bd74223e98ceea96ebee4c9a469272ead358f462d89753f8c909b",
+    "archiveSha256": "19cae1bf9b7862518087ac40d6fef3ff3098581c74fdc09abd24bb5a0163167d",
+    "targetIsolationVerified": true,
+    "persistentCoordinationVerified": true,
+    "coordinationSchemaExcluded": true,
+    "coordinationScope": "cooperating-writers-only"
+  }
+}
