@@ -76,6 +76,13 @@ try {
     if (attempt < 11) await delay(5000);
   }
   if (!ready) throw new Error('Current test credential readiness not established; fixture invocation not attempted');
+  const postProbe = await fetch(url.replace('/rehearse', '/ready'), { method: 'POST', headers: { Authorization: `Bearer ${rehearsalToken}` }, redirect: 'error', signal: AbortSignal.timeout(10000) });
+  manifest.postReadinessStatus = postProbe.status;
+  manifest.postReadinessGenerationMatched = postProbe.headers.get('x-rehearsal-generation') === config.vars.REHEARSAL_GENERATION;
+  const postState = await postProbe.json().catch(() => ({}));
+  manifest.postReadinessDiagnostics = { authorizationPresent: typeof postState.authorizationPresent === 'boolean' ? postState.authorizationPresent : null, bearerFormat: typeof postState.bearerFormat === 'boolean' ? postState.bearerFormat : null };
+  await save();
+  if (postProbe.status !== 200 || !manifest.postReadinessGenerationMatched || postState.ready !== true || postState.expiresAt !== config.vars.EXPIRES_AT) throw new Error('POST readiness not established; fixture invocation not attempted');
   const denied = await fetch(url, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000) });
   manifest.unauthenticatedStatuses = [denied.status];
   manifest.anonymousGenerationMatched = denied.headers.get('x-rehearsal-generation') === config.vars.REHEARSAL_GENERATION;
