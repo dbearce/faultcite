@@ -34,10 +34,13 @@ const mustReject = async operation => {
 const rehearsalWorker = {
   async fetch(request, env) {
     const reply = (value, status = 200) => Response.json(value, { status, headers: { 'Cache-Control': 'no-store' } });
-    if (request.method !== 'POST' || new URL(request.url).pathname !== '/rehearse') return reply({ error: 'Not found' }, 404);
+    const readiness = request.method === 'GET' && new URL(request.url).pathname === '/ready';
+    if (!readiness && (request.method !== 'POST' || new URL(request.url).pathname !== '/rehearse')) return reply({ error: 'Not found' }, 404);
     const supplied = request.headers.get('Authorization') || '';
     if (!env.REHEARSAL_TOKEN || Date.now() >= Number(env.EXPIRES_AT) || !Number.isFinite(Number(env.EXPIRES_AT))) return reply({ error: 'Disabled' }, 403);
     if (!timingSafeEqual(Buffer.from(digest(supplied)), Buffer.from(digest(`Bearer ${env.REHEARSAL_TOKEN}`)))) return reply({ error: 'Unauthorized' }, 401);
+    // Authenticated readiness never opens or changes a storage binding.
+    if (readiness) return reply({ ready: true, expiresAt: String(env.EXPIRES_AT) });
     try {
       for (const db of [env.SOURCE_DB, env.TARGET_DB]) {
         const row = await db.prepare("SELECT COUNT(*) AS n FROM sqlite_schema WHERE type='table' AND name NOT GLOB 'sqlite_*' AND name NOT GLOB '_cf_*'").first();
