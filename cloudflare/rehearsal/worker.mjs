@@ -34,7 +34,7 @@ const mustReject = async operation => {
 const rehearsalWorker = {
   async fetch(request, env) {
     const reply = (value, status = 200) => Response.json(value, { status, headers: { 'Cache-Control': 'no-store', 'X-Rehearsal-Generation': String(env.REHEARSAL_GENERATION || 'unset') } });
-    const readiness = request.method === 'GET' && new URL(request.url).pathname === '/ready';
+    const readiness = ['GET', 'POST'].includes(request.method) && new URL(request.url).pathname === '/ready';
     if (!readiness && (request.method !== 'POST' || new URL(request.url).pathname !== '/rehearse')) return reply({ error: 'Not found' }, 404);
     const supplied = request.headers.get('Authorization') || '';
     if (!env.REHEARSAL_TOKEN || Date.now() >= Number(env.EXPIRES_AT) || !Number.isFinite(Number(env.EXPIRES_AT))) return reply({ error: 'Disabled' }, 403);
