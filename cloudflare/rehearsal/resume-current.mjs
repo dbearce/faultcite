@@ -57,24 +57,28 @@ try {
   if (deploy.status !== 0) throw new Error('Synthetic Worker redeployment failed; output withheld');
   const url = `https://${prefix}.${subdomain}.workers.dev/rehearse`;
   let ready = false;
-  manifest.unauthenticatedStatuses = [];
-  for (let attempt = 0; attempt < 8; attempt++) {
-    const denied = await fetch(url, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(30000) });
-    manifest.unauthenticatedStatuses.push(denied.status);
-    const deniedText = (await denied.text()).slice(0, 4096);
-    manifest.readinessDiagnostics ||= [];
-    manifest.readinessDiagnostics.push({
-      status: denied.status,
-      contentType: denied.headers.get('content-type'),
-      workerDisabled: deniedText.includes('"error":"Disabled"'),
-      cloudflareErrorCode: deniedText.match(/(?:error code:|Error\\s+)(\\d{4})/i)?.[1] || null,
-    });
+  manifest.readinessStatuses = [];
+  // Poll only a read-only endpoint. Never retry the fixture-writing POST.
+  for (let attempt = 0; attempt < 12; attempt++) {
+    const probe = await fetch(url.replace('/rehearse', '/ready'), { headers: { Authorization: `Bearer ${rehearsalToken}` }, redirect: 'error', signal: AbortSignal.timeout(10000) });
+    manifest.readinessStatuses.push(probe.status);
     await save();
-    if (denied.status === 401) { ready = true; break; }
-    if (![404, 502, 503].includes(denied.status)) throw new Error(`Unauthenticated check failed closed (${denied.status})`);
-    if (attempt < 7) await delay(5000);
+    if (probe.status === 200) {
+      const state = await probe.json();
+      if (state.ready !== true || state.expiresAt !== config.vars.EXPIRES_AT) throw new Error('Rehearsal readiness generation mismatch');
+      ready = true;
+      break;
+    }
+    await probe.body?.cancel();
+    if (![401, 403, 404, 502, 503].includes(probe.status)) throw new Error(`Read-only readiness failed (${probe.status})`);
+    if (attempt < 11) await delay(5000);
   }
-  if (!ready) throw new Error('Worker readiness not established; authenticated rehearsal not attempted');
+  if (!ready) throw new Error('Current test credential readiness not established; fixture invocation not attempted');
+  const denied = await fetch(url, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000) });
+  manifest.unauthenticatedStatuses = [denied.status];
+  await denied.body?.cancel();
+  await save();
+  if (denied.status !== 401) throw new Error(`Unauthenticated check failed closed (${denied.status})`);
   manifest.status = 'authenticated-attempt-started'; await save();
   // Exactly one authenticated invocation. Existing fixture checks prevent overwrite.
   const response = await fetch(url, { method: 'POST', headers: { Authorization: `Bearer ${rehearsalToken}` }, redirect: 'error', signal: AbortSignal.timeout(120000) });
@@ -92,3 +96,4 @@ try {
   await save();
   console.log('Exact synthetic recovery inventory saved. No new resources, production, DNS or billing changes.');
 }
+
