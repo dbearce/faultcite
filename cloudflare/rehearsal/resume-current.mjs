@@ -61,7 +61,15 @@ try {
   for (let attempt = 0; attempt < 8; attempt++) {
     const denied = await fetch(url, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(30000) });
     manifest.unauthenticatedStatuses.push(denied.status);
-    await denied.body?.cancel();
+    const deniedText = (await denied.text()).slice(0, 4096);
+    manifest.readinessDiagnostics ||= [];
+    manifest.readinessDiagnostics.push({
+      status: denied.status,
+      contentType: denied.headers.get('content-type'),
+      workerDisabled: deniedText.includes('"error":"Disabled"'),
+      cloudflareErrorCode: deniedText.match(/(?:error code:|Error\\s+)(\\d{4})/i)?.[1] || null,
+    });
+    await save();
     if (denied.status === 401) { ready = true; break; }
     if (![404, 502, 503].includes(denied.status)) throw new Error(`Unauthenticated check failed closed (${denied.status})`);
     if (attempt < 7) await delay(5000);
