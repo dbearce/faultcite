@@ -64,3 +64,18 @@ for (const existing of ['TARGET_DB', 'TARGET_FILES']) {
     } finally { await mf.dispose(); }
   });
 }
+
+test('readiness authenticates the current lease without storage bindings', async () => {
+  const bundled = await build({ entryPoints: ['cloudflare/rehearsal/worker.mjs'], bundle: true, format: 'esm', platform: 'node', write: false, external: ['node:*'] });
+  const expiresAt = String(Date.now() + 60000);
+  const mf = new Miniflare(convertV4MiniflareOptions({ modules: true, script: bundled.outputFiles[0].text, compatibilityDate: '2026-09-15', compatibilityFlags: ['nodejs_compat'], bindings: { REHEARSAL_TOKEN: 'current-token', EXPIRES_AT: expiresAt } }));
+  try {
+    for (const authorization of ['', 'Bearer previous-token']) {
+      assert.equal((await mf.dispatchFetch('https://fixture/ready', { headers: { Authorization: authorization } })).status, 401);
+    }
+    const response = await mf.dispatchFetch('https://fixture/ready', { headers: { Authorization: 'Bearer current-token' } });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ready: true, expiresAt });
+    assert.equal((await mf.dispatchFetch('https://fixture/ready', { method: 'POST', headers: { Authorization: 'Bearer current-token' } })).status, 404);
+  } finally { await mf.dispose(); }
+});
