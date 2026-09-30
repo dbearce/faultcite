@@ -23,3 +23,9 @@ Production backup and restoration are NOT verified. No production pause, custome
 ## Acceptance sequence
 
 Verify administrator identity; implement/test production-compatible inspection and recovery; verify protected destination and source provenance; obtain owner approval immediately before maintenance; fence/drain writers; capture complete protected backup; restore into verified isolated empty storage; reconcile all tables, files and metadata; record actual continuity evidence. Cutover remains blocked until these pass.
+
+## Follow-up: authenticated session observed, September 30
+
+After the owner completed manual sign-in, the live app rendered the maintenance workspace at https://app.faultcite.com/. Company setup was available with owner controls, and Add company was visible. Sites still reports live version 35. In its source commit f82670bd231bc4a1cbf25e512bd7187b9a84e3e5, Add company is conditional on the backend-provided platformAdmin flag and manager display mode. This supports platform-admin UI recognition, not a tested full-backup endpoint or independently pinned Clerk subject.
+
+The source's existing /api/export is an organization-scoped JSON report. It excludes object keys, does not collect R2 object bytes, and does not include the entire database. It is not a full-restoration backup. No export was invoked. Full-backup access, encrypted collection, maintenance recovery and production restore remain unverified. No accounts, settings, DNS or maintenance state were changed during this follow-up.
