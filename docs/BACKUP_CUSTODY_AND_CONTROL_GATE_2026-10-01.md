@@ -42,6 +42,9 @@ Pause refuses invalid environment settings or conflicting pause identities.
 Independent code review found no blocking authorization or unsafe lock-clearing
 defect. The focused control suite passes 17 tests; the Worker routing suite
 passes 4 tests. These are local tests, not authenticated hosted acceptance.
+Final verification: `npm run build` completed successfully, including website
+validation, lint, TypeScript, vinext packaging, artifact checks, and 232 passing
+tests with zero failures/skips. No live deployment was performed.
 
 Recovery must distinguish the persistent pause from the environment pause.
 Aborting a persistent pause does not disable the environment gate. Neither abort
