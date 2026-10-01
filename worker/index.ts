@@ -3,7 +3,7 @@ import { handleImageOptimization, DEFAULT_DEVICE_SIZES, DEFAULT_IMAGE_SIZES } fr
 import handler from "vinext/server/app-router-entry";
 import { runWithRequestEnv } from "../lib/request-env";
 import { applyAppSecurityHeaders } from "../lib/security-headers";
-import { writePauseResponse } from "../lib/write-pause.mjs";
+import { writePauseResponse, isProtectedMaintenanceRequest } from "../lib/write-pause.mjs";
 import { createPersistentDrain } from "../lib/persistent-drain.mjs";
 import { runTrackedRequest } from "../lib/drain-lifetime.mjs";
 
@@ -157,7 +157,7 @@ const trackedWorker = {
     });
     if (paused) return secure(paused, url.pathname);
     // Export acquires its own exclusive ticket AFTER independent authorization.
-    if (request.method === 'POST' && url.pathname === '/api/admin/migration-export' && !url.search) {
+    if (isProtectedMaintenanceRequest(request)) {
       return worker.fetch(request, env, ctx);
     }
     try {
