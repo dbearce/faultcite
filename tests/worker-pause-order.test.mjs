@@ -48,3 +48,17 @@ test('paused exact export reaches authorization but query variants stay blocked'
     assert.equal(response.status, suffix ? 503 : 403);
   }
 });
+
+test('maintenance recovery dispatch stays reachable but does not bypass authorization', async () => {
+  const env = { FAULTCITE_DRAIN_TRACKING_ENABLED: 'true', FAULTCITE_WRITE_PAUSE_ENABLED: 'true', FAULTCITE_WRITE_PAUSE_ID: 'synthetic_pause' };
+  for (const suffix of ['', '?bypass=1', '/']) {
+    const response = await worker.fetch(new Request(`https://staging.faultcite.com/api/admin/maintenance-control${suffix}`, {
+      method: 'POST', headers: { origin: 'https://staging.faultcite.com' },
+    }), env, { waitUntil() { throw new Error('Must not admit control requests as writers'); } });
+    assert.equal(response.status, suffix ? 503 : 403);
+  }
+  const crossSite = await worker.fetch(new Request('https://staging.faultcite.com/api/admin/maintenance-control', {
+    method: 'POST', headers: { origin: 'https://evil.example' },
+  }), env, { waitUntil() {} });
+  assert.equal(crossSite.status, 403);
+});
